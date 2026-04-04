@@ -1,0 +1,5 @@
+{
+  "name": "MBU Studio - نظام إدارة الوكالة",
+  "description": "نظام متكامل لإدارة MBU Studio يشمل: إدارة متقدمة للفريق، نظام مهام قوي، CRM متكامل، نظام مالي، وتكامل مع WhatsApp.",
+  "requestFramePermissions": ["camera", "microphone"]
+}

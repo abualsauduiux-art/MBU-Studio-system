@@ -1,0 +1,175 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A team member or admin of the agency.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["admin", "manager", "employee"] },
+        "teamId": { "type": "string" },
+        "photoURL": { "type": "string", "format": "uri" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "name", "email", "role"]
+    },
+    "Team": {
+      "title": "Team",
+      "description": "A group of team members.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "leaderId": { "type": "string" },
+        "members": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "leaderId"]
+    },
+    "Client": {
+      "title": "Client",
+      "description": "A customer of the agency.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "source": { "type": "string" },
+        "service": { "type": "string" },
+        "status": { "type": "string", "enum": ["lead", "contacted", "proposal", "negotiation", "active", "inactive", "closed"] },
+        "address": { "type": "string" },
+        "estimatedValue": { "type": "number" },
+        "totalPrice": { "type": "number" },
+        "paidAmount": { "type": "number" },
+        "remainingAmount": { "type": "number" },
+        "lastWhatsAppContact": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "status"]
+    },
+    "Project": {
+      "title": "Project",
+      "description": "A project linked to a client.",
+      "type": "object",
+      "properties": {
+        "clientId": { "type": "string" },
+        "name": { "type": "string" },
+        "serviceType": { "type": "string", "enum": ["social_media", "ads", "seo", "design"] },
+        "budget": { "type": "number" },
+        "status": { "type": "string", "enum": ["in_progress", "completed", "on_hold"] },
+        "startDate": { "type": "string", "format": "date" },
+        "endDate": { "type": "string", "format": "date" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["clientId", "name", "serviceType", "budget", "status"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "A task linked to a project and assigned to a team member.",
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string" },
+        "clientId": { "type": "string" },
+        "assignedTo": { "type": "string", "description": "User UID" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "priority": { "type": "string", "enum": ["low", "medium", "high"] },
+        "status": { "type": "string", "enum": ["todo", "in_progress", "review", "done"] },
+        "deadline": { "type": "string", "format": "date" },
+        "reminderAt": { "type": "string", "format": "date-time" },
+        "reminderNotified": { "type": "boolean" },
+        "files": { "type": "array", "items": { "type": "string" } },
+        "commentsCount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["projectId", "title", "status"]
+    },
+    "TaskComment": {
+      "title": "TaskComment",
+      "description": "A comment on a task.",
+      "type": "object",
+      "properties": {
+        "taskId": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userPhoto": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["taskId", "userId", "text"]
+    },
+    "Invoice": {
+      "title": "Invoice",
+      "description": "A billing document for a client.",
+      "type": "object",
+      "properties": {
+        "clientId": { "type": "string" },
+        "projectId": { "type": "string" },
+        "amount": { "type": "number" },
+        "dueDate": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["paid", "unpaid", "partial"] },
+        "items": { "type": "array", "items": { "type": "object" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["clientId", "amount", "dueDate", "status"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "Agency expenses like ads, salaries, etc.",
+      "type": "object",
+      "properties": {
+        "category": { "type": "string", "enum": ["ads", "salaries", "tools", "other"] },
+        "amount": { "type": "number" },
+        "description": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["category", "amount", "date"]
+    },
+    "Call": {
+      "title": "Call",
+      "description": "A video or audio call between users.",
+      "type": "object",
+      "properties": {
+        "callerId": { "type": "string" },
+        "callerName": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "type": { "type": "string", "enum": ["audio", "video"] },
+        "status": { "type": "string", "enum": ["ringing", "accepted", "rejected", "ended"] },
+        "signalData": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["callerId", "receiverId", "type", "status"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "A notification for a user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Recipient UID" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "type": { "type": "string", "enum": ["task", "message", "call", "system"] },
+        "read": { "type": "boolean" },
+        "link": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "description", "type", "read"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": { "schema": "User", "description": "Team member profiles" },
+    "/teams/{teamId}": { "schema": "Team", "description": "Team groups" },
+    "/clients/{clientId}": { "schema": "Client", "description": "Client records" },
+    "/projects/{projectId}": { "schema": "Project", "description": "Project records" },
+    "/tasks/{taskId}": { "schema": "Task", "description": "Task records" },
+    "/tasks/{taskId}/comments/{commentId}": { "schema": "TaskComment", "description": "Comments on tasks" },
+    "/invoices/{invoiceId}": { "schema": "Invoice", "description": "Billing records" },
+    "/expenses/{expenseId}": { "schema": "Expense", "description": "Expense records" },
+    "/calls/{callId}": { "schema": "Call", "description": "Call signaling records" },
+    "/notifications/{notificationId}": { "schema": "Notification", "description": "User notifications" }
+  }
+}

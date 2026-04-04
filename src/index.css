@@ -1,0 +1,52 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Cairo", ui-sans-serif, system-ui, sans-serif;
+  
+  /* Redefining blue to be the orange from the logo */
+  --color-blue-50: #fff7ed;
+  --color-blue-100: #ffedd5;
+  --color-blue-200: #fed7aa;
+  --color-blue-300: #fdba74;
+  --color-blue-400: #fb923c;
+  --color-blue-500: #f97316;
+  --color-blue-600: #ea580c;
+  --color-blue-700: #c2410c;
+  --color-blue-800: #9a3412;
+  --color-blue-900: #7c2d12;
+  --color-blue-950: #431407;
+
+  /* Adding a specific primary brand color */
+  --color-primary: #ea580c;
+}
+
+body {
+  @apply bg-gray-50 text-gray-900;
+  font-family: "Cairo", sans-serif;
+}
+
+[dir="rtl"] {
+  text-align: right;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-only-content, .print-only-content * {
+    visibility: visible;
+  }
+  .print-only-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background: white;
+  }
+  @page {
+    margin: 0;
+  }
+}
