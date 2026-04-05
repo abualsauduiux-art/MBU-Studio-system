@@ -782,7 +782,7 @@ export const Invoices = () => {
                 )}
               </div>
               <div className="w-64 space-y-4">
-                <div className="flex justify-between text-2xl font-black text-blue-600 pb-3 border-b border-gray-100">
+                <div className="flex justify-between text-gray-500 font-bold pb-3 border-b border-gray-100">
                   <span>إجمالي السعر:</span>
                   <span>{printingInvoice.currency || agencySettings?.currency || 'ج.م'}{printingInvoice.amount.toLocaleString()}</span>
                 </div>
@@ -790,8 +790,8 @@ export const Invoices = () => {
                   <span>تم دفع:</span>
                   <span className="text-emerald-600">{printingInvoice.currency || agencySettings?.currency || 'ج.م'}{(printingInvoice.paidAmount || 0).toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between text-xl font-black text-rose-600 pt-3 border-t border-gray-100">
-                  <span>الباقي:</span>
+                <div className="flex justify-between text-2xl font-black text-blue-600 pt-3 border-t border-gray-100">
+                  <span>إجمالي الفاتورة:</span>
                   <span>{printingInvoice.currency || agencySettings?.currency || 'ج.م'}{(printingInvoice.remainingAmount ?? (printingInvoice.amount - (printingInvoice.paidAmount || 0))).toLocaleString()}</span>
                 </div>
               </div>
