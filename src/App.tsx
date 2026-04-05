@@ -13,7 +13,8 @@ import {
   where,
   updateDoc,
   doc,
-  deleteDoc
+  deleteDoc,
+  getDocs
 } from 'firebase/firestore';
 import { 
   LayoutDashboard, 
@@ -34,7 +35,10 @@ import {
   MessageSquare,
   Calendar as CalendarIcon,
   FolderOpen,
-  WifiOff
+  WifiOff,
+  Eye,
+  EyeOff,
+  AlertTriangle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
@@ -366,9 +370,11 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isRegistering, setIsRegistering] = useState(false);
   const [name, setName] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -387,14 +393,30 @@ const Login = () => {
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
         setError("البريد الإلكتروني أو كلمة المرور غير صحيحة");
       } else if (error.code === 'auth/email-already-in-use') {
-        setError("البريد الإلكتروني مستخدم بالفعل");
-      } else if (error.code === 'auth/weak-password') {
-        setError("كلمة المرور ضعيفة جداً");
+        setError("البريد الإلكتروني مستخدم بالفعل. حاول تسجيل الدخول.");
       } else {
         setError("حدث خطأ. يرجى المحاولة مرة أخرى.");
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const resetAllUsers = async () => {
+    if (!window.confirm('هل أنت متأكد من حذف جميع الحسابات من قاعدة البيانات؟ لا يمكن التراجع عن هذه الخطوة.')) return;
+    
+    setResetLoading(true);
+    try {
+      const querySnapshot = await getDocs(collection(db, 'users'));
+      const deletePromises = querySnapshot.docs.map(d => deleteDoc(doc(db, 'users', d.id)));
+      await Promise.all(deletePromises);
+      alert('تم حذف جميع الحسابات بنجاح. يمكنك الآن إنشاء حساب الأدمن الجديد.');
+      setIsRegistering(true);
+    } catch (err) {
+      console.error("Error resetting users:", err);
+      alert('حدث خطأ أثناء حذف الحسابات.');
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -406,7 +428,7 @@ const Login = () => {
             <LogoFull />
           </div>
           <p className="text-gray-500 font-medium">
-            {isRegistering ? 'إنشاء حساب جديد للبدء' : 'مرحباً بك مجدداً! يرجى تسجيل الدخول للمتابعة'}
+            {isRegistering ? 'إنشاء حساب جديد (للأدمن أول مرة)' : 'مرحباً بك مجدداً! يرجى تسجيل الدخول للمتابعة'}
           </p>
         </div>
 
@@ -455,12 +477,19 @@ const Login = () => {
               <Lock className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
               <input 
                 required
-                type="password" 
+                type={showPassword ? "text" : "password"} 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pr-12 pl-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+                className="w-full pr-12 pl-12 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium"
                 placeholder="كلمة المرور"
               />
+              <button 
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-600 transition-colors"
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
           </div>
 
@@ -485,9 +514,18 @@ const Login = () => {
           </button>
         </form>
 
-        <div className="mt-10 text-center">
+        <div className="mt-10 pt-6 border-t border-gray-100 text-center space-y-4">
+          <button
+            onClick={resetAllUsers}
+            disabled={resetLoading}
+            className="text-xs text-red-500 font-bold hover:text-red-700 flex items-center justify-center gap-2 mx-auto"
+          >
+            <AlertTriangle size={14} />
+            {resetLoading ? 'جاري الحذف...' : 'حذف جميع الحسابات والبدء من جديد'}
+          </button>
+          
           <p className="text-xs text-gray-400 font-medium leading-relaxed">
-            {isRegistering ? 'حساب الأدمن: abualsaud.uiux@gmail.com' : 'من خلال تسجيل الدخول، فإنك توافق على شروط الخدمة وسياسة الخصوصية الخاصة بنا'}
+            {isRegistering ? 'تنبيه: هذا الخيار متاح مؤقتاً لإنشاء حساب الأدمن.' : 'من خلال تسجيل الدخول، فإنك توافق على شروط الخدمة وسياسة الخصوصية الخاصة بنا'}
           </p>
         </div>
       </div>

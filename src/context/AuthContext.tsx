@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode, useMemo, useCallback } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { doc, onSnapshot, setDoc, getDoc, deleteDoc } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, getDoc, deleteDoc, collection, getDocs, limit, query } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { UserProfile } from '../types';
 
@@ -58,6 +58,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             }
 
             let initialRole = firebaseUser.email === 'abualsaud.uiux@gmail.com' ? 'admin' : 'employee';
+            
+            // If the users collection is empty, the first user becomes admin
+            try {
+              const usersSnap = await getDocs(query(collection(db, 'users'), limit(1)));
+              if (usersSnap.empty) {
+                initialRole = 'admin';
+              }
+            } catch (err) {
+              console.error("Error checking for existing users:", err);
+            }
+
             let initialJobTitle = '';
             let initialName = firebaseUser.displayName || 'مستخدم جديد';
 
