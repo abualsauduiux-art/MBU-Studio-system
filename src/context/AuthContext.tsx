@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode, useMemo, useCallback } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { doc, onSnapshot, setDoc, getDocs, collection, query, where, deleteDoc } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, getDoc, deleteDoc } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { UserProfile } from '../types';
 
@@ -42,21 +42,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setLoading(false);
           } else {
             // Check if there's a manual profile with this email
-            const q = query(collection(db, 'users'), where('email', '==', firebaseUser.email));
-            const manualSnap = await getDocs(q);
-            const manualDoc = manualSnap.docs.find(d => d.id.startsWith('manual_'));
+            const manualId = `manual_${firebaseUser.email?.replace(/[^a-zA-Z0-9]/g, '_')}`;
+            const manualRef = doc(db, 'users', manualId);
+            
+            let manualData: any = null;
+            try {
+              const manualSnap = await getDoc(manualRef);
+              if (manualSnap.exists()) {
+                manualData = manualSnap.data();
+                // Delete the manual doc to avoid confusion
+                await deleteDoc(manualRef);
+              }
+            } catch (err) {
+              console.error("Error checking/deleting manual doc:", err);
+            }
 
             let initialRole = firebaseUser.email === 'abualsaud.uiux@gmail.com' ? 'admin' : 'employee';
             let initialJobTitle = '';
             let initialName = firebaseUser.displayName || 'مستخدم جديد';
 
-            if (manualDoc) {
-              const manualData = manualDoc.data();
+            if (manualData) {
               initialRole = manualData.role || initialRole;
               initialJobTitle = manualData.jobTitle || '';
               initialName = manualData.name || initialName;
-              // Delete the manual doc to avoid confusion
-              deleteDoc(manualDoc.ref).catch(err => console.error("Error deleting manual doc:", err));
             }
 
             const newProfile: UserProfile = {
@@ -65,7 +73,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               email: firebaseUser.email || '',
               role: initialRole as any,
               jobTitle: initialJobTitle,
-              photoURL: firebaseUser.photoURL || undefined,
+              photoURL: firebaseUser.photoURL || null, // Use null instead of undefined
               createdAt: new Date().toISOString(),
               permissions: {
                 dashboard: true,
@@ -78,10 +86,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 settings: initialRole === 'admin',
               }
             };
-            setDoc(profileRef, newProfile).catch(err => handleFirestoreError(err, OperationType.WRITE, 'users'));
+            try {
+              await setDoc(profileRef, newProfile);
+            } catch (err) {
+              console.error("Error creating profile:", err);
+            }
           }
         }, (err) => {
-          handleFirestoreError(err, OperationType.GET, 'users');
+          console.error("Profile snapshot error:", err);
           setLoading(false);
         });
 
@@ -95,19 +107,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => unsubscribe();
   }, []);
 
-  const hasPermission = (permission: keyof import('../types').UserPermissions) => {
+  const hasPermission = useCallback((permission: keyof import('../types').UserPermissions) => {
     if (profile?.role === 'admin') return true;
     return profile?.permissions?.[permission] ?? false;
-  };
+  }, [profile]);
 
-  const value: AuthContextType = {
+  const value: AuthContextType = useMemo(() => ({
     user,
     profile,
     loading,
     isAdmin: profile?.role === 'admin',
     isManager: profile?.role === 'admin' || profile?.role === 'manager',
     hasPermission,
-  };
+  }), [user, profile, loading, hasPermission]);
 
   return (
     <AuthContext.Provider value={value}>

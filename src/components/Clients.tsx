@@ -540,7 +540,7 @@ export const Clients = () => {
         onClose={() => setIsModalOpen(false)} 
         title={editingClient ? 'تعديل بيانات العميل' : 'إضافة عميل جديد'}
       >
-        <form onSubmit={handleSubmit} className="space-y-5 max-h-[80vh] overflow-y-auto px-1">
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-2">
             <label className="text-sm font-bold text-gray-700">اسم العميل / الشركة</label>
             <input 

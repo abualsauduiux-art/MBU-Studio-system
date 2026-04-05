@@ -81,7 +81,9 @@ async function testConnection() {
     await getDocFromServer(doc(db, 'test', 'connection'));
   } catch (error) {
     if(error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration. ");
+      console.error("Please check your Firebase configuration. The client is offline.");
+    } else if (error instanceof Error && error.message.includes('unavailable')) {
+      console.error("Firestore is currently unavailable. This might be due to a network issue or a browser restriction (like blocking third-party cookies).");
     }
   }
 }

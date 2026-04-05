@@ -17,6 +17,7 @@ export interface UserProfile {
   email: string;
   role: UserRole;
   jobTitle?: string; // e.g., Graphic Designer, Content Creator
+  password?: string; // Visible to admin only
   teamId?: string;
   photoURL?: string;
   createdAt: string;

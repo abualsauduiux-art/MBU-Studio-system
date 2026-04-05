@@ -11,8 +11,11 @@ import {
   query, 
   orderBy 
 } from 'firebase/firestore';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { db, handleFirestoreError, OperationType, secondaryAuth } from '../firebase';
+import { 
+  getAuth, 
+  createUserWithEmailAndPassword
+} from 'firebase/auth';
+import { db, handleFirestoreError, OperationType, secondaryAuth, auth } from '../firebase';
 import { UserProfile, UserRole } from '../types';
 import { Modal } from './ui/Modal';
 import { 
@@ -26,14 +29,18 @@ import {
   UserCog,
   Lock,
   Mail,
-  Briefcase as BriefcaseIcon
+  Briefcase as BriefcaseIcon,
+  AlertTriangle
 } from 'lucide-react';
 import { clsx } from 'clsx';
+import { useAuth } from '../context/AuthContext';
 
 export const Team = () => {
+  const { profile } = useAuth();
   const [team, setTeam] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
   const [editingMember, setEditingMember] = useState<UserProfile | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +73,7 @@ export const Team = () => {
       setTeam(teamData);
       setLoading(false);
     }, (err) => {
-      handleFirestoreError(err, OperationType.LIST, 'users');
+      console.error("Team list snapshot error:", err);
       setLoading(false);
     });
 
@@ -83,7 +90,8 @@ export const Team = () => {
           email: formData.email,
           jobTitle: formData.jobTitle,
           role: formData.role,
-          permissions: formData.permissions
+          permissions: formData.permissions,
+          password: formData.password // Update password record in Firestore
         });
       } else {
         // Pre-check Firestore to give a better error message if they are already in the team
@@ -112,6 +120,7 @@ export const Team = () => {
           jobTitle: formData.jobTitle,
           role: formData.role,
           permissions: formData.permissions,
+          password: formData.password, // Store password in Firestore
           createdAt: new Date().toISOString(),
         };
         await setDoc(doc(db, 'users', newUid), newProfile);
@@ -125,7 +134,30 @@ export const Team = () => {
     } catch (err: any) {
       console.error(err);
       if (err.code === 'auth/email-already-in-use') {
-        setError('هذا البريد الإلكتروني مستخدم بالفعل في نظام التحقق. قد يكون العضو قد سجل مسبقاً باستخدام جوجل أو تم حذفه جزئياً. اطلب منه تسجيل الدخول مباشرة.');
+        // If user exists in Auth but not in Firestore (checked above), 
+        // we can create a manual entry that AuthProvider will merge later.
+        try {
+          const manualId = `manual_${formData.email.replace(/[^a-zA-Z0-9]/g, '_')}`;
+          const newProfile: UserProfile = {
+            uid: manualId,
+            name: formData.name,
+            email: formData.email,
+            jobTitle: formData.jobTitle,
+            role: formData.role,
+            permissions: formData.permissions,
+            createdAt: new Date().toISOString(),
+          };
+          await setDoc(doc(db, 'users', manualId), newProfile);
+          
+          setIsModalOpen(false);
+          setEditingMember(null);
+          resetForm();
+          alert('هذا المستخدم لديه حساب بالفعل. تم تحديث بياناته وسيتم تفعيلها عند تسجيل دخوله القادم.');
+          return;
+        } catch (manualErr) {
+          console.error("Manual profile creation failed", manualErr);
+          setError('هذا البريد الإلكتروني مستخدم بالفعل في نظام التحقق (Firebase Auth). يرجى الطلب من العضو تسجيل الدخول أولاً ثم تعديل بياناته.');
+        }
       } else if (err.code === 'auth/weak-password') {
         setError('كلمة المرور ضعيفة جداً (يجب أن تكون 6 أحرف على الأقل)');
       } else if (err.code === 'auth/operation-not-allowed') {
@@ -168,12 +200,36 @@ export const Team = () => {
     }
   };
 
+  const handleDeleteAll = async () => {
+    const adminEmail = "abualsaud.uiux@gmail.com";
+    const membersToDelete = team.filter(m => m.email !== adminEmail);
+    
+    if (membersToDelete.length === 0) {
+      alert('لا يوجد أعضاء لحذفهم (باستثناء المسؤول).');
+      return;
+    }
+
+    if (window.confirm(`هل أنت متأكد من حذف جميع أعضاء الفريق (${membersToDelete.length} عضو)؟ لا يمكن التراجع عن هذه الخطوة.`)) {
+      setIsDeletingAll(true);
+      try {
+        for (const member of membersToDelete) {
+          await deleteDoc(doc(db, 'users', member.uid));
+        }
+        alert('تم حذف جميع الأعضاء بنجاح.');
+      } catch (err) {
+        handleFirestoreError(err, OperationType.DELETE, 'users');
+      } finally {
+        setIsDeletingAll(false);
+      }
+    }
+  };
+
   const openEditModal = (member: UserProfile) => {
     setEditingMember(member);
     setFormData({
       name: member.name,
       email: member.email,
-      password: '',
+      password: member.password || '',
       jobTitle: member.jobTitle || '',
       role: member.role,
       permissions: member.permissions || {
@@ -215,17 +271,29 @@ export const Team = () => {
           <h2 className="text-3xl font-black text-gray-900">إدارة الفريق</h2>
           <p className="text-gray-500 mt-1 font-medium">إدارة أعضاء الوكالة، الأدوار، والصلاحيات</p>
         </div>
-        <button 
-          onClick={() => {
-            setEditingMember(null);
-            resetForm();
-            setIsModalOpen(true);
-          }}
-          className="flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
-        >
-          <Plus size={20} />
-          <span>إضافة عضو جديد</span>
-        </button>
+        <div className="flex gap-3">
+          {profile?.role === 'admin' && (
+            <button 
+              onClick={handleDeleteAll}
+              disabled={isDeletingAll}
+              className="flex items-center justify-center gap-2 bg-red-50 text-red-600 px-6 py-3 rounded-2xl font-bold hover:bg-red-100 transition-all border border-red-100 disabled:opacity-50"
+            >
+              <AlertTriangle size={20} />
+              <span>{isDeletingAll ? 'جاري الحذف...' : 'حذف الكل'}</span>
+            </button>
+          )}
+          <button 
+            onClick={() => {
+              setEditingMember(null);
+              resetForm();
+              setIsModalOpen(true);
+            }}
+            className="flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
+          >
+            <Plus size={20} />
+            <span>إضافة عضو جديد</span>
+          </button>
+        </div>
       </div>
 
       {/* Search */}
@@ -355,22 +423,25 @@ export const Team = () => {
             </div>
           </div>
 
-          {!editingMember && (
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-gray-700">كلمة المرور</label>
-              <div className="relative">
-                <Lock className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                <input 
-                  required
-                  type="password" 
-                  value={formData.password}
-                  onChange={(e) => setFormData({...formData, password: e.target.value})}
-                  className="w-full pr-12 pl-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium"
-                  placeholder="كلمة المرور (6 أحرف على الأقل)"
-                />
-              </div>
+          <div className="space-y-2">
+            <label className="text-sm font-bold text-gray-700">كلمة المرور</label>
+            <div className="relative">
+              <Lock className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <input 
+                required={!editingMember}
+                type="text" 
+                value={formData.password}
+                onChange={(e) => setFormData({...formData, password: e.target.value})}
+                className="w-full pr-12 pl-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+                placeholder={editingMember ? "تغيير كلمة المرور..." : "كلمة المرور (6 أحرف على الأقل)"}
+              />
             </div>
-          )}
+            {editingMember && (
+              <p className="text-[10px] text-amber-600 font-bold px-2">
+                * ملاحظة: تغيير كلمة المرور هنا يحدث السجل فقط. لتفعيلها فعلياً في نظام الدخول، يجب على العضو استخدام خيار "نسيت كلمة المرور" عند تسجيل الدخول أو التواصل معك.
+              </p>
+            )}
+          </div>
 
           <div className="space-y-2">
             <label className="text-sm font-bold text-gray-700">المسمى الوظيفي</label>

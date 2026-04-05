@@ -1,5 +1,5 @@
 import React, { useState, ReactNode, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
 import { auth, login, loginWithEmail, logout, db } from './firebase';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -33,7 +33,8 @@ import {
   Lock,
   MessageSquare,
   Calendar as CalendarIcon,
-  FolderOpen
+  FolderOpen,
+  WifiOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
@@ -63,11 +64,37 @@ const SidebarItem = ({ to, icon: Icon, label, active }: { to: string, icon: any,
 
 const Layout = ({ children }: { children: ReactNode }) => {
   const { profile, loading, hasPermission } = useAuth();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1024);
   const location = useLocation();
+  const [isOffline, setIsOffline] = useState(false);
+
+  useEffect(() => {
+    const checkConnection = async () => {
+      try {
+        const { getDocFromServer, doc } = await import('firebase/firestore');
+        await getDocFromServer(doc(db, 'test', 'connection'));
+        setIsOffline(false);
+      } catch (err: any) {
+        if (err.message?.includes('unavailable') || err.message?.includes('offline')) {
+          setIsOffline(true);
+        }
+      }
+    };
+    checkConnection();
+    const interval = setInterval(checkConnection, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Close sidebar on route change on mobile
+    if (window.innerWidth < 1024) {
+      setIsSidebarOpen(false);
+    }
+  }, [location.pathname]);
 
   useEffect(() => {
     if (!profile?.uid) return;
@@ -112,16 +139,35 @@ const Layout = ({ children }: { children: ReactNode }) => {
 
   return (
     <div className="flex min-h-screen bg-gray-50 font-sans" dir="rtl">
+      {/* Sidebar Overlay */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsSidebarOpen(false)}
+            className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-40 lg:hidden"
+          />
+        )}
+      </AnimatePresence>
+
       {/* Sidebar */}
       <aside 
         className={cn(
-          "fixed inset-y-0 right-0 z-50 w-72 bg-white border-l border-gray-100 transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0",
+          "fixed inset-y-0 right-0 z-50 w-64 sm:w-72 bg-white border-l border-gray-100 transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0",
           !isSidebarOpen && "translate-x-full"
         )}
       >
         <div className="flex flex-col h-full p-6">
-          <div className="mb-10 px-2">
+          <div className="mb-10 px-2 flex items-center justify-between">
             <LogoFull />
+            <button 
+              onClick={() => setIsSidebarOpen(false)}
+              className="lg:hidden p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all"
+            >
+              <X size={20} />
+            </button>
           </div>
 
           <nav className="flex-1 space-y-2">
@@ -169,7 +215,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Navbar */}
-        <header className="h-20 bg-white border-b border-gray-100 flex items-center justify-between px-8 sticky top-0 z-40">
+        <header className="h-20 bg-white border-b border-gray-100 flex items-center justify-between px-4 sm:px-8 sticky top-0 z-40">
           <button 
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
             className="lg:hidden p-2 text-gray-500 hover:bg-gray-100 rounded-lg"
@@ -178,6 +224,12 @@ const Layout = ({ children }: { children: ReactNode }) => {
           </button>
 
           <div className="flex items-center gap-6 mr-auto">
+            {isOffline && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-600 rounded-xl text-xs font-bold border border-amber-100 animate-pulse">
+                <WifiOff size={14} />
+                <span>وضع عدم الاتصال</span>
+              </div>
+            )}
             <div className="relative">
               <button 
                 onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
@@ -258,7 +310,13 @@ const Layout = ({ children }: { children: ReactNode }) => {
                         >
                           مسح الكل
                         </button>
-                        <button className="flex-1 p-3 text-center text-xs font-bold text-gray-500 hover:text-blue-600 hover:bg-gray-50 transition-colors border-r border-gray-50">
+                        <button 
+                          onClick={() => {
+                            setIsNotificationsOpen(false);
+                            navigate('/notifications');
+                          }}
+                          className="flex-1 p-3 text-center text-xs font-bold text-gray-500 hover:text-blue-600 hover:bg-gray-50 transition-colors border-r border-gray-50"
+                        >
                           عرض جميع الإشعارات
                         </button>
                       </div>
@@ -283,7 +341,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
         </header>
 
         {/* Page Content */}
-        <div className="flex-1 overflow-y-auto p-8">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-8">
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
@@ -444,6 +502,7 @@ const Login = () => {
   );
 };
 
+import { Notifications } from './components/Notifications';
 import { Dashboard } from './components/Dashboard';
 import { Clients } from './components/Clients';
 import { Projects } from './components/Projects';
@@ -475,6 +534,7 @@ export default function App() {
 
 function AppRoutes() {
   const { user, loading, hasPermission } = useAuth();
+  const navigate = useNavigate();
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -507,6 +567,7 @@ function AppRoutes() {
           
           <Route path="/reports" element={hasPermission('settings') ? <Layout><Reports /></Layout> : <Navigate to="/" replace />} />
           <Route path="/analytics" element={hasPermission('settings') ? <Layout><Analytics /></Layout> : <Navigate to="/" replace />} />
+          <Route path="/notifications" element={<Layout><Notifications /></Layout>} />
           
           <Route path="/login" element={<Navigate to="/" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />

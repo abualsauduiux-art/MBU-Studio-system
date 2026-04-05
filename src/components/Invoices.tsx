@@ -28,7 +28,9 @@ import {
   Settings,
   Image as ImageIcon,
   X,
-  MessageCircle
+  MessageCircle,
+  Users,
+  Briefcase
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -377,181 +379,205 @@ export const Invoices = () => {
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
         title={editingInvoice ? 'تعديل الفاتورة' : 'إنشاء فاتورة جديدة'}
+        maxWidth="2xl"
       >
-        <form onSubmit={handleSubmit} className="space-y-5 max-h-[80vh] overflow-y-auto px-1">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-gray-700">رقم الفاتورة (اختياري)</label>
-              <input 
-                type="text" 
-                placeholder="مثال: INV-2024-001"
-                value={formData.customNumber}
-                onChange={(e) => setFormData({...formData, customNumber: e.target.value})}
-                className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-gray-700">العميل</label>
-              <select 
-                required
-                value={formData.clientId}
-                onChange={(e) => setFormData({...formData, clientId: e.target.value})}
-                className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium appearance-none"
-              >
-                <option value="">اختر العميل...</option>
-                {clients.map(client => (
-                  <option key={client.id} value={client.id}>{client.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-bold text-gray-700">المشروع (اختياري)</label>
-            <select 
-              value={formData.projectId}
-              onChange={(e) => {
-                const projId = e.target.value;
-                const project = projects.find(p => p.id === projId);
-                setFormData({
-                  ...formData, 
-                  projectId: projId,
-                  clientId: project ? project.clientId : formData.clientId
-                });
-              }}
-              className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium appearance-none"
-            >
-              <option value="">اختر المشروع...</option>
-              {projects.map(project => (
-                <option key={project.id} value={project.id}>{project.name}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Items Section */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-bold text-gray-700">بنود الفاتورة</label>
-              <button 
-                type="button"
-                onClick={addItem}
-                className="text-blue-600 text-sm font-bold hover:underline flex items-center gap-1"
-              >
-                <Plus size={16} />
-                إضافة بند
-              </button>
-            </div>
-            <div className="space-y-3">
-              {formData.items.map((item, index) => (
-                <div key={index} className="flex gap-2 items-start bg-gray-50 p-3 rounded-2xl">
-                  <div className="flex-1 space-y-2">
-                    <input 
-                      type="text"
-                      placeholder="الوصف"
-                      value={item.description}
-                      onChange={(e) => updateItem(index, 'description', e.target.value)}
-                      className="w-full px-3 py-2 bg-white border-none rounded-xl text-sm font-medium"
-                    />
-                    <div className="flex gap-2">
-                      <input 
-                        type="number"
-                        placeholder="الكمية"
-                        value={item.quantity}
-                        onChange={(e) => updateItem(index, 'quantity', Number(e.target.value))}
-                        className="w-20 px-3 py-2 bg-white border-none rounded-xl text-sm font-medium"
-                      />
-                      <input 
-                        type="number"
-                        placeholder="السعر"
-                        value={item.price}
-                        onChange={(e) => updateItem(index, 'price', Number(e.target.value))}
-                        className="flex-1 px-3 py-2 bg-white border-none rounded-xl text-sm font-medium"
-                      />
-                    </div>
-                  </div>
-                  <button 
-                    type="button"
-                    onClick={() => removeItem(index)}
-                    className="p-2 text-gray-400 hover:text-red-500"
-                  >
-                    <X size={18} />
-                  </button>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="bg-blue-50/50 p-6 rounded-3xl border border-blue-100/50 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">رقم الفاتورة (اختياري)</label>
+                <div className="relative">
+                  <FileText className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                  <input 
+                    type="text" 
+                    placeholder="مثال: INV-2024-001"
+                    value={formData.customNumber}
+                    onChange={(e) => setFormData({...formData, customNumber: e.target.value})}
+                    className="w-full pr-12 pl-4 py-3 bg-white border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium shadow-sm"
+                  />
                 </div>
-              ))}
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">العميل</label>
+                <div className="relative">
+                  <Users className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={18} />
+                  <select 
+                    required
+                    value={formData.clientId}
+                    onChange={(e) => setFormData({...formData, clientId: e.target.value})}
+                    className="w-full pr-12 pl-4 py-3 bg-white border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium appearance-none shadow-sm"
+                  >
+                    <option value="">اختر العميل...</option>
+                    {clients.map(client => (
+                      <option key={client.id} value={client.id}>{client.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <label className="text-sm font-bold text-gray-700">المبلغ الإجمالي</label>
-              <input 
-                required
-                type="number" 
-                value={formData.amount}
-                onChange={(e) => setFormData({...formData, amount: Number(e.target.value)})}
-                className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-gray-700">العملة</label>
-              <input 
-                type="text" 
-                placeholder={agencySettings?.currency || 'ج.م'}
-                value={formData.currency}
-                onChange={(e) => setFormData({...formData, currency: e.target.value})}
-                className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium"
-              />
+              <label className="text-sm font-bold text-gray-700">المشروع المرتبط (اختياري)</label>
+              <div className="relative">
+                <Briefcase className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={18} />
+                <select 
+                  value={formData.projectId}
+                  onChange={(e) => {
+                    const projId = e.target.value;
+                    const project = projects.find(p => p.id === projId);
+                    setFormData({
+                      ...formData, 
+                      projectId: projId,
+                      clientId: project ? project.clientId : formData.clientId
+                    });
+                  }}
+                  className="w-full pr-12 pl-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium appearance-none"
+                >
+                  <option value="">اختر المشروع...</option>
+                  {projects.map(project => (
+                    <option key={project.id} value={project.id}>{project.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-bold text-gray-700">تاريخ الاستحقاق</label>
-              <input 
-                required
-                type="date" 
-                value={formData.dueDate}
-                onChange={(e) => setFormData({...formData, dueDate: e.target.value})}
-                className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium"
-              />
+              <div className="relative">
+                <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input 
+                  required
+                  type="date" 
+                  value={formData.dueDate}
+                  onChange={(e) => setFormData({...formData, dueDate: e.target.value})}
+                  className="w-full pr-12 pl-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Items Section */}
+          <div className="space-y-4 bg-gray-50/50 p-6 rounded-3xl border border-gray-100">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center">
+                  <FileText size={16} />
+                </div>
+                <label className="text-sm font-black text-gray-900">بنود الفاتورة</label>
+              </div>
+              <button 
+                type="button"
+                onClick={addItem}
+                className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-blue-700 transition-all flex items-center gap-2 shadow-md shadow-blue-100"
+              >
+                <Plus size={14} />
+                إضافة بند جديد
+              </button>
+            </div>
+            
+            <div className="space-y-3">
+              {formData.items.length > 0 ? (
+                formData.items.map((item, index) => (
+                  <div key={index} className="flex flex-col sm:flex-row gap-3 items-start bg-white p-4 rounded-2xl border border-gray-100 shadow-sm group">
+                    <div className="flex-1 w-full">
+                      <input 
+                        type="text"
+                        placeholder="وصف الخدمة أو المنتج"
+                        value={item.description}
+                        onChange={(e) => updateItem(index, 'description', e.target.value)}
+                        className="w-full px-4 py-2.5 bg-gray-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500 transition-all"
+                      />
+                    </div>
+                    <div className="flex gap-3 w-full sm:w-auto">
+                      <div className="w-24">
+                        <input 
+                          type="number"
+                          placeholder="الكمية"
+                          value={item.quantity}
+                          onChange={(e) => updateItem(index, 'quantity', Number(e.target.value))}
+                          className="w-full px-4 py-2.5 bg-gray-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500 transition-all text-center"
+                        />
+                      </div>
+                      <div className="flex-1 sm:w-32">
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">
+                            {formData.currency || agencySettings?.currency || 'ج.م'}
+                          </span>
+                          <input 
+                            type="number"
+                            placeholder="السعر"
+                            value={item.price}
+                            onChange={(e) => updateItem(index, 'price', Number(e.target.value))}
+                            className="w-full pr-4 pl-10 py-2.5 bg-gray-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500 transition-all"
+                          />
+                        </div>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => removeItem(index)}
+                        className="p-2.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="py-8 text-center border-2 border-dashed border-gray-100 rounded-2xl">
+                  <p className="text-xs text-gray-400 font-bold">لا توجد بنود مضافة بعد</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-gray-700">المبلغ الإجمالي</label>
+              <div className="relative">
+                <DollarSign className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input 
+                  required
+                  type="number" 
+                  value={formData.amount}
+                  onChange={(e) => setFormData({...formData, amount: Number(e.target.value)})}
+                  className="w-full pr-12 pl-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-black text-blue-600"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-gray-700">الحالة</label>
+              <div className="relative">
+                <Clock className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={18} />
+                <select 
+                  value={formData.status}
+                  onChange={(e) => setFormData({...formData, status: e.target.value as Invoice['status']})}
+                  className="w-full pr-12 pl-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium appearance-none"
+                >
+                  <option value="unpaid">غير مدفوعة</option>
+                  <option value="paid">مدفوعة</option>
+                  <option value="partial">مدفوعة جزئياً</option>
+                </select>
+              </div>
             </div>
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-bold text-gray-700">ملاحظات</label>
+            <label className="text-sm font-bold text-gray-700">ملاحظات إضافية</label>
             <textarea 
               value={formData.notes}
               onChange={(e) => setFormData({...formData, notes: e.target.value})}
-              className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium h-20"
+              className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium h-24 resize-none"
+              placeholder="شروط الدفع، تفاصيل التحويل، إلخ..."
             />
           </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-bold text-gray-700">الحالة</label>
-            <select 
-              value={formData.status}
-              onChange={(e) => setFormData({...formData, status: e.target.value as Invoice['status']})}
-              className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium appearance-none"
-            >
-              <option value="unpaid">غير مدفوعة</option>
-              <option value="paid">مدفوعة</option>
-              <option value="partial">مدفوعة جزئياً</option>
-            </select>
-          </div>
           
-          <div className="pt-4 flex gap-3">
-            {editingInvoice && (
-              <button 
-                type="button"
-                onClick={() => handlePrint(editingInvoice)}
-                className="px-6 bg-white border border-gray-200 text-gray-700 font-bold py-4 rounded-2xl hover:bg-gray-50 transition-all flex items-center gap-2"
-              >
-                <Printer size={20} />
-                <span>طباعة</span>
-              </button>
-            )}
+          <div className="pt-6 flex gap-3 sticky bottom-0 bg-white pb-2">
             <button 
               type="submit"
-              className="flex-1 bg-blue-600 text-white font-bold py-4 rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
+              className="flex-1 bg-blue-600 text-white font-black py-4 rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
             >
-              {editingInvoice ? 'حفظ التعديلات' : 'إنشاء الفاتورة'}
+              {editingInvoice ? 'حفظ التعديلات' : 'إنشاء وإصدار الفاتورة'}
             </button>
             <button 
               type="button"
@@ -564,13 +590,13 @@ export const Invoices = () => {
         </form>
       </Modal>
 
-      {/* Agency Settings Modal */}
       <Modal
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
         title="إعدادات الوكالة"
+        maxWidth="xl"
       >
-        <form onSubmit={handleSaveSettings} className="space-y-5 max-h-[80vh] overflow-y-auto px-1">
+        <form onSubmit={handleSaveSettings} className="space-y-5">
           <div className="space-y-2">
             <label className="text-sm font-bold text-gray-700">اسم الوكالة</label>
             <input 

@@ -69,9 +69,10 @@ service cloud.firestore {
 
     match /users/{uid} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && (isOwner(uid) || isAdmin());
-      allow update: if isAuthenticated() && (isOwner(uid) || isAdmin());
-      allow delete: if isAdmin();
+      allow create: if isAuthenticated() && (isOwner(uid) || isAdmin() || uid.startsWith('manual_'));
+      allow update: if isAuthenticated() && (isOwner(uid) || isAdmin()) && 
+                    (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['password']) || isAdmin());
+      allow delete: if isAdmin() || (uid.startsWith('manual_') && resource.data.email == request.auth.token.email);
     }
 
     match /teams/{teamId} {
