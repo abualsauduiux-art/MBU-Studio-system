@@ -105,6 +105,8 @@ export interface Invoice {
   clientId: string;
   projectId?: string;
   amount: number;
+  paidAmount?: number;
+  remainingAmount?: number;
   currency?: string;
   dueDate: string;
   status: 'paid' | 'unpaid' | 'partial';

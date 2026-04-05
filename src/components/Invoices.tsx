@@ -52,6 +52,7 @@ export const Invoices = () => {
     clientId: '',
     projectId: '',
     amount: 0,
+    paidAmount: 0,
     currency: '',
     dueDate: '',
     status: 'unpaid' as Invoice['status'],
@@ -159,21 +160,36 @@ export const Invoices = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const remainingAmount = formData.amount - formData.paidAmount;
+      let status = formData.status;
+      
+      // Auto-update status based on paid amount
+      if (formData.paidAmount >= formData.amount) {
+        status = 'paid';
+      } else if (formData.paidAmount > 0) {
+        status = 'partial';
+      } else {
+        status = 'unpaid';
+      }
+
+      const invoiceData = {
+        ...formData,
+        status,
+        remainingAmount,
+        currency: formData.currency || agencySettings?.currency || 'ج.م'
+      };
+
       if (editingInvoice) {
-        await updateDoc(doc(db, 'invoices', editingInvoice.id), {
-          ...formData,
-          currency: formData.currency || agencySettings?.currency || 'ج.م'
-        });
+        await updateDoc(doc(db, 'invoices', editingInvoice.id), invoiceData);
       } else {
         await addDoc(collection(db, 'invoices'), {
-          ...formData,
-          currency: formData.currency || agencySettings?.currency || 'ج.م',
+          ...invoiceData,
           createdAt: new Date().toISOString()
         });
       }
       setIsModalOpen(false);
       setEditingInvoice(null);
-      setFormData({ customNumber: '', clientId: '', projectId: '', amount: 0, currency: '', dueDate: '', status: 'unpaid', items: [], notes: '' });
+      setFormData({ customNumber: '', clientId: '', projectId: '', amount: 0, paidAmount: 0, currency: '', dueDate: '', status: 'unpaid', items: [], notes: '' });
     } catch (err) {
       handleFirestoreError(err, editingInvoice ? OperationType.UPDATE : OperationType.CREATE, 'invoices');
     }
@@ -243,7 +259,7 @@ export const Invoices = () => {
           <button 
             onClick={() => {
               setEditingInvoice(null);
-              setFormData({ customNumber: '', clientId: '', projectId: '', amount: 0, currency: '', dueDate: '', status: 'unpaid', items: [], notes: '' });
+              setFormData({ customNumber: '', clientId: '', projectId: '', amount: 0, paidAmount: 0, currency: '', dueDate: '', status: 'unpaid', items: [], notes: '' });
               setIsModalOpen(true);
             }}
             className="flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
@@ -344,6 +360,7 @@ export const Invoices = () => {
                           clientId: invoice.clientId,
                           projectId: invoice.projectId || '',
                           amount: invoice.amount,
+                          paidAmount: invoice.paidAmount || 0,
                           currency: invoice.currency || '',
                           dueDate: invoice.dueDate,
                           status: invoice.status,
@@ -531,7 +548,7 @@ export const Invoices = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             <div className="space-y-2">
               <label className="text-sm font-bold text-gray-700">المبلغ الإجمالي</label>
               <div className="relative">
@@ -542,6 +559,18 @@ export const Invoices = () => {
                   value={formData.amount}
                   onChange={(e) => setFormData({...formData, amount: Number(e.target.value)})}
                   className="w-full pr-12 pl-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-black text-blue-600"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-gray-700">المبلغ المدفوع</label>
+              <div className="relative">
+                <CheckCircle2 className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input 
+                  type="number" 
+                  value={formData.paidAmount}
+                  onChange={(e) => setFormData({...formData, paidAmount: Number(e.target.value)})}
+                  className="w-full pr-12 pl-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-black text-emerald-600"
                 />
               </div>
             </div>
@@ -756,6 +785,14 @@ export const Invoices = () => {
                 <div className="flex justify-between text-gray-500 font-bold">
                   <span>المجموع الفرعي:</span>
                   <span>{printingInvoice.currency || agencySettings?.currency || 'ج.م'}{printingInvoice.amount.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-gray-500 font-bold">
+                  <span>المبلغ المدفوع:</span>
+                  <span className="text-emerald-600">{printingInvoice.currency || agencySettings?.currency || 'ج.م'}{(printingInvoice.paidAmount || 0).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-gray-500 font-bold">
+                  <span>المبلغ المتبقي:</span>
+                  <span className="text-rose-600">{printingInvoice.currency || agencySettings?.currency || 'ج.م'}{(printingInvoice.remainingAmount ?? (printingInvoice.amount - (printingInvoice.paidAmount || 0))).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-gray-500 font-bold">
                   <span>الضريبة (0%):</span>
