@@ -46,8 +46,8 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() &&
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-          (request.auth.token.email == "abualsaud.uiux@gmail.com" && request.auth.token.email_verified == true));
+        ((exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+          request.auth.token.email == "abualsaud.uiux@gmail.com");
     }
 
     function isManager() {
@@ -68,11 +68,10 @@ service cloud.firestore {
     // ===============================================================
 
     match /users/{uid} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && (isOwner(uid) || isAdmin() || uid.startsWith('manual_'));
-      allow update: if isAuthenticated() && (isOwner(uid) || isAdmin()) && 
-                    (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['password']) || isAdmin());
-      allow delete: if isAdmin() || (uid.startsWith('manual_') && resource.data.email == request.auth.token.email);
+      allow read: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if true;
     }
 
     match /teams/{teamId} {
