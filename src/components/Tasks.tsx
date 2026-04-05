@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { 
   collection, 
   onSnapshot, 
@@ -41,6 +42,8 @@ import { sendEmailNotification } from '../lib/email';
 
 export const Tasks = () => {
   const { user: currentUser, profile, isAdmin, isManager } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const taskIdParam = searchParams.get('id');
   
   const statusLabels = {
     todo: "للتنفيذ",
@@ -142,6 +145,34 @@ export const Tasks = () => {
     };
   }, []);
 
+  // Handle task ID from query param
+  useEffect(() => {
+    if (taskIdParam && tasks.length > 0) {
+      const task = tasks.find(t => t.id === taskIdParam);
+      if (task) {
+        // We need to find the openEditModal function or implement the logic
+        setEditingTask(task);
+        setFormData({
+          projectId: task.projectId || '',
+          clientId: task.clientId || '',
+          assignedTo: task.assignedTo || [],
+          title: task.title,
+          description: task.description,
+          priority: task.priority,
+          status: task.status,
+          deadline: task.deadline || '',
+          reminderAt: task.reminderAt || '',
+          files: task.files || []
+        });
+        setIsModalOpen(true);
+        // Clear the param
+        const newParams = new URLSearchParams(searchParams);
+        newParams.delete('id');
+        setSearchParams(newParams, { replace: true });
+      }
+    }
+  }, [taskIdParam, tasks, searchParams, setSearchParams]);
+
   // Reminder Checker
   useEffect(() => {
     const interval = setInterval(async () => {
@@ -168,7 +199,7 @@ export const Tasks = () => {
                 description: `تذكير: المهمة "${task.title}" حان موعد تذكيرها.`,
                 type: 'task',
                 read: false,
-                link: '/tasks',
+                link: `/tasks?id=${task.id}`,
                 createdAt: new Date().toISOString()
               });
             }
@@ -223,7 +254,7 @@ export const Tasks = () => {
               description: `تم تعيينك في المهمة: ${formData.title}`,
               type: 'task',
               read: false,
-              link: '/tasks',
+              link: `/tasks?id=${editingTask.id}`,
               createdAt: new Date().toISOString()
             });
 
@@ -260,7 +291,7 @@ export const Tasks = () => {
                 description: `تم تغيير حالة المهمة "${formData.title}" إلى: ${statusLabels[formData.status]} بواسطة ${profile?.name}`,
                 type: 'task',
                 read: false,
-                link: '/tasks',
+                link: `/tasks?id=${editingTask.id}`,
                 createdAt: new Date().toISOString()
               });
             }
@@ -283,7 +314,7 @@ export const Tasks = () => {
               description: `تم تعيينك في مهمة جديدة: ${formData.title}`,
               type: 'task',
               read: false,
-              link: '/tasks',
+              link: `/tasks?id=${taskRef.id}`,
               createdAt: new Date().toISOString()
             });
 

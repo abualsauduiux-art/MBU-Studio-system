@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   collection, 
   onSnapshot, 
@@ -25,6 +26,7 @@ import { clsx } from 'clsx';
 
 export const Notifications = () => {
   const { profile } = useAuth();
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -135,9 +137,15 @@ export const Notifications = () => {
               <div 
                 key={notif.id} 
                 className={clsx(
-                  "p-6 flex items-start gap-4 transition-all group",
+                  "p-6 flex items-start gap-4 transition-all group cursor-pointer",
                   !notif.read ? "bg-blue-50/30" : "hover:bg-gray-50"
                 )}
+                onClick={() => {
+                  markAsRead(notif.id);
+                  if (notif.link) {
+                    navigate(notif.link);
+                  }
+                }}
               >
                 <div className={clsx(
                   "w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0",
@@ -156,14 +164,20 @@ export const Notifications = () => {
                   <div className="flex items-center gap-3">
                     {!notif.read && (
                       <button 
-                        onClick={() => markAsRead(notif.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          markAsRead(notif.id);
+                        }}
                         className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-all"
                       >
                         تحديد كمقروء
                       </button>
                     )}
                     <button 
-                      onClick={() => deleteNotification(notif.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteNotification(notif.id);
+                      }}
                       className="text-xs font-bold text-gray-400 hover:text-rose-600 transition-all"
                     >
                       حذف

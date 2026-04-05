@@ -280,7 +280,8 @@ const Layout = ({ children }: { children: ReactNode }) => {
                             onClick={() => {
                               markAsRead(notif.id);
                               if (notif.link) {
-                                // Navigate if needed, though usually just marking as read is enough for now
+                                navigate(notif.link);
+                                setIsNotificationsOpen(false);
                               }
                             }}
                             className={cn(
@@ -366,33 +367,31 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [showEmailLogin, setShowEmailLogin] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [name, setName] = useState('');
 
-  const handleGoogleLogin = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      await login();
-    } catch (error) {
-      console.error("Login failed", error);
-      setError("فشل تسجيل الدخول بواسطة Google");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleEmailLogin = async (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     try {
-      await loginWithEmail(email, password);
+      if (isRegistering) {
+        const { createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth');
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(userCredential.user, { displayName: name });
+      } else {
+        await loginWithEmail(email, password);
+      }
     } catch (error: any) {
-      console.error("Login failed", error);
+      console.error("Auth failed", error);
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
         setError("البريد الإلكتروني أو كلمة المرور غير صحيحة");
+      } else if (error.code === 'auth/email-already-in-use') {
+        setError("البريد الإلكتروني مستخدم بالفعل");
+      } else if (error.code === 'auth/weak-password') {
+        setError("كلمة المرور ضعيفة جداً");
       } else {
-        setError("حدث خطأ أثناء تسجيل الدخول. يرجى المحاولة مرة أخرى.");
+        setError("حدث خطأ. يرجى المحاولة مرة أخرى.");
       }
     } finally {
       setLoading(false);
@@ -406,7 +405,9 @@ const Login = () => {
           <div className="mb-6 flex justify-center">
             <LogoFull />
           </div>
-          <p className="text-gray-500 font-medium">مرحباً بك مجدداً! يرجى تسجيل الدخول للمتابعة</p>
+          <p className="text-gray-500 font-medium">
+            {isRegistering ? 'إنشاء حساب جديد للبدء' : 'مرحباً بك مجدداً! يرجى تسجيل الدخول للمتابعة'}
+          </p>
         </div>
 
         {error && (
@@ -415,86 +416,78 @@ const Login = () => {
           </div>
         )}
 
-        {!showEmailLogin ? (
-          <div className="space-y-4">
-            <button
-              onClick={handleGoogleLogin}
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-3 bg-white border-2 border-gray-100 text-gray-700 font-bold py-4 rounded-2xl hover:bg-gray-50 hover:border-blue-200 transition-all duration-300 group"
-            >
-              {loading ? (
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-              ) : (
-                <>
-                  <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-6 h-6" />
-                  <span>تسجيل الدخول بواسطة Google</span>
-                </>
-              )}
-            </button>
-            <button
-              onClick={() => setShowEmailLogin(true)}
-              className="w-full text-blue-600 font-bold py-2 hover:underline transition-all"
-            >
-              أو تسجيل الدخول بالبريد الإلكتروني
-            </button>
+        <form onSubmit={handleAuth} className="space-y-5">
+          {isRegistering && (
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-gray-700">الاسم الكامل</label>
+              <div className="relative">
+                <UserIcon className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input 
+                  required
+                  type="text" 
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full pr-12 pl-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+                  placeholder="الاسم الكامل"
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <label className="text-sm font-bold text-gray-700">البريد الإلكتروني</label>
+            <div className="relative">
+              <Mail className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <input 
+                required
+                type="email" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full pr-12 pl-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+                placeholder="example@gmail.com"
+              />
+            </div>
           </div>
-        ) : (
-          <form onSubmit={handleEmailLogin} className="space-y-5">
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-gray-700">البريد الإلكتروني</label>
-              <div className="relative">
-                <Mail className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                <input 
-                  required
-                  type="email" 
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pr-12 pl-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium"
-                  placeholder="example@gmail.com"
-                />
-              </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-bold text-gray-700">كلمة المرور</label>
+            <div className="relative">
+              <Lock className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <input 
+                required
+                type="password" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full pr-12 pl-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+                placeholder="كلمة المرور"
+              />
             </div>
+          </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-gray-700">كلمة المرور</label>
-              <div className="relative">
-                <Lock className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                <input 
-                  required
-                  type="password" 
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pr-12 pl-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium"
-                  placeholder="كلمة المرور"
-                />
-              </div>
-            </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 flex items-center justify-center"
+          >
+            {loading ? (
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+            ) : (
+              isRegistering ? "إنشاء الحساب" : "تسجيل الدخول"
+            )}
+          </button>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 flex items-center justify-center"
-            >
-              {loading ? (
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-              ) : (
-                "تسجيل الدخول"
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setShowEmailLogin(false)}
-              className="w-full text-gray-500 font-bold py-2 hover:underline transition-all"
-            >
-              العودة لتسجيل الدخول بواسطة Google
-            </button>
-          </form>
-        )}
+          <button
+            type="button"
+            onClick={() => setIsRegistering(!isRegistering)}
+            className="w-full text-blue-600 font-bold py-2 hover:underline transition-all"
+          >
+            {isRegistering ? "لديك حساب بالفعل؟ سجل دخولك" : "ليس لديك حساب؟ أنشئ حساباً جديداً"}
+          </button>
+        </form>
 
         <div className="mt-10 text-center">
           <p className="text-xs text-gray-400 font-medium leading-relaxed">
-            من خلال تسجيل الدخول، فإنك توافق على شروط الخدمة وسياسة الخصوصية الخاصة بنا
+            {isRegistering ? 'حساب الأدمن: abualsaud.uiux@gmail.com' : 'من خلال تسجيل الدخول، فإنك توافق على شروط الخدمة وسياسة الخصوصية الخاصة بنا'}
           </p>
         </div>
       </div>

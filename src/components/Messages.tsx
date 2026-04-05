@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { 
   Search, 
   MessageSquare, 
@@ -68,6 +69,9 @@ interface Chat {
 
 export const Messages = () => {
   const { user, profile } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const chatIdParam = searchParams.get('chatId');
+  
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -78,6 +82,13 @@ export const Messages = () => {
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Call states
   const [activeCall, setActiveCall] = useState<Call | null>(null);
@@ -146,6 +157,20 @@ export const Messages = () => {
 
     return () => unsubscribe();
   }, [user]);
+
+  // Handle chatId from query param
+  useEffect(() => {
+    if (chatIdParam && chats.length > 0) {
+      const chat = chats.find(c => c.id === chatIdParam);
+      if (chat) {
+        setSelectedChatId(chat.id);
+        // Clear the param
+        const newParams = new URLSearchParams(searchParams);
+        newParams.delete('chatId');
+        setSearchParams(newParams, { replace: true });
+      }
+    }
+  }, [chatIdParam, chats, searchParams, setSearchParams]);
 
   // Fetch messages for selected chat
   useEffect(() => {
@@ -482,7 +507,7 @@ export const Messages = () => {
             description: `${profile.name}: ${text.length > 30 ? text.substring(0, 30) + '...' : text}`,
             type: 'message',
             read: false,
-            link: '/messages',
+            link: `/messages?chatId=${selectedChatId}`,
             createdAt: new Date().toISOString()
           });
         }
@@ -584,12 +609,15 @@ export const Messages = () => {
   const selectedChat = chats.find(c => c.id === selectedChatId);
 
   return (
-    <div className="h-[calc(100vh-160px)] flex gap-6">
+    <div className="h-[calc(100vh-120px)] sm:h-[calc(100vh-160px)] flex flex-col lg:flex-row gap-4 lg:gap-6 relative overflow-hidden">
       {/* Chat List */}
-      <div className="w-80 bg-white rounded-3xl border border-gray-100 shadow-sm flex flex-col overflow-hidden">
-        <div className="p-6 border-b border-gray-50">
+      <div className={clsx(
+        "w-full lg:w-80 bg-white rounded-3xl border border-gray-100 shadow-sm flex flex-col overflow-hidden transition-all duration-300",
+        isMobile && selectedChatId ? "hidden" : "flex h-full"
+      )}>
+        <div className="p-4 sm:p-6 border-b border-gray-50">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-black text-gray-900">الرسائل</h2>
+            <h2 className="text-xl sm:text-2xl font-black text-gray-900">الرسائل</h2>
             <div className="flex items-center gap-2">
               {notificationPermission !== 'granted' && (
                 <button 
@@ -597,25 +625,25 @@ export const Messages = () => {
                   className="p-2 text-amber-600 bg-amber-50 rounded-xl hover:bg-amber-100 transition-all"
                   title="تفعيل الإشعارات"
                 >
-                  <Phone size={20} />
+                  <Phone size={18} />
                 </button>
               )}
               <button 
                 onClick={() => setShowNewChatModal(true)}
                 className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-all"
               >
-                <Plus size={20} />
+                <Plus size={18} />
               </button>
             </div>
           </div>
           <div className="relative">
-            <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
             <input 
               type="text" 
               placeholder="البحث عن محادثة..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pr-12 pl-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all text-sm font-medium"
+              className="w-full pr-10 pl-4 py-2.5 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all text-sm font-medium"
             />
           </div>
         </div>
@@ -630,36 +658,36 @@ export const Messages = () => {
                 key={chat.id}
                 onClick={() => setSelectedChatId(chat.id)}
                 className={clsx(
-                  "w-full flex items-center gap-4 p-4 rounded-2xl transition-all text-right group",
+                  "w-full flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-2xl transition-all text-right group",
                   selectedChatId === chat.id ? "bg-blue-50" : "hover:bg-gray-50"
                 )}
               >
-                <div className="relative">
+                <div className="relative flex-shrink-0">
                   <img 
                     src={getChatAvatar(chat)} 
                     alt="" 
-                    className="w-12 h-12 rounded-xl object-cover"
+                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl object-cover"
                   />
                   {chat.type === 'group' && (
-                    <div className="absolute -bottom-1 -left-1 w-5 h-5 bg-blue-600 border-2 border-white rounded-full flex items-center justify-center text-[10px] text-white">
-                      <UsersIcon size={10} />
+                    <div className="absolute -bottom-1 -left-1 w-4 h-4 sm:w-5 sm:h-5 bg-blue-600 border-2 border-white rounded-full flex items-center justify-center text-[8px] sm:text-[10px] text-white">
+                      <UsersIcon size={8} />
                     </div>
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-center mb-1">
-                    <h3 className="font-bold text-gray-900 truncate">{getChatName(chat)}</h3>
-                    <span className="text-[10px] text-gray-400 font-medium">{formatTime(chat.lastMessageAt)}</span>
+                  <div className="flex justify-between items-center mb-0.5 sm:mb-1">
+                    <h3 className="font-bold text-gray-900 truncate text-sm sm:text-base">{getChatName(chat)}</h3>
+                    <span className="text-[9px] sm:text-[10px] text-gray-400 font-medium whitespace-nowrap">{formatTime(chat.lastMessageAt)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <p className={clsx(
-                      "text-xs truncate",
+                      "text-[11px] sm:text-xs truncate",
                       (chat.unreadCount?.[user?.uid || ''] || 0) > 0 ? "text-gray-900 font-bold" : "text-gray-400 font-medium"
                     )}>
                       {chat.lastMessage}
                     </p>
                     {(chat.unreadCount?.[user?.uid || ''] || 0) > 0 && (
-                      <span className="bg-blue-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                      <span className="bg-blue-600 text-white text-[9px] sm:text-[10px] font-black px-1.5 py-0.5 rounded-full min-w-[16px] sm:min-w-[18px] text-center">
                         {chat.unreadCount?.[user?.uid || '']}
                       </span>
                     )}
@@ -676,70 +704,81 @@ export const Messages = () => {
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 bg-white rounded-3xl border border-gray-100 shadow-sm flex flex-col overflow-hidden">
+      <div className={clsx(
+        "flex-1 bg-white rounded-3xl border border-gray-100 shadow-sm flex flex-col overflow-hidden transition-all duration-300",
+        isMobile && !selectedChatId ? "hidden" : "flex h-full"
+      )}>
         {selectedChatId ? (
           <>
             {/* Header */}
-            <div className="p-6 border-b border-gray-50 flex items-center justify-between">
-              <div className="flex items-center gap-4">
+            <div className="p-4 sm:p-6 border-b border-gray-50 flex items-center justify-between">
+              <div className="flex items-center gap-3 sm:gap-4 overflow-hidden">
+                {isMobile && (
+                  <button 
+                    onClick={() => setSelectedChatId(null)}
+                    className="p-2 -mr-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                  >
+                    <Plus size={24} className="rotate-45" />
+                  </button>
+                )}
                 <img 
                   src={getChatAvatar(selectedChat!)} 
                   alt="" 
-                  className="w-12 h-12 rounded-xl object-cover"
+                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl object-cover flex-shrink-0"
                 />
-                <div>
-                  <h3 className="font-black text-gray-900">{getChatName(selectedChat!)}</h3>
-                  <p className="text-xs text-emerald-500 font-bold">
+                <div className="truncate">
+                  <h3 className="font-black text-gray-900 truncate text-sm sm:text-base">{getChatName(selectedChat!)}</h3>
+                  <p className="text-[10px] sm:text-xs text-emerald-500 font-bold">
                     {selectedChat?.type === 'group' ? `${selectedChat.participants.length} عضو` : 'متصل الآن'}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 sm:gap-2">
                 <button 
                   onClick={() => startCall('audio')}
-                  className="p-3 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                  className="p-2 sm:p-3 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
                 >
-                  <Phone size={20} />
+                  <Phone size={18} />
                 </button>
                 <button 
                   onClick={() => startCall('video')}
-                  className="p-3 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                  className="p-2 sm:p-3 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
                 >
-                  <Video size={20} />
+                  <Video size={18} />
                 </button>
-                <button className="p-3 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all">
-                  <MoreVertical size={20} />
+                <button className="p-2 sm:p-3 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all">
+                  <MoreVertical size={18} />
                 </button>
               </div>
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/30">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6 bg-gray-50/30">
               {messages.map((msg) => {
                 const isMe = msg.senderId === user?.uid;
                 return (
                   <div 
                     key={msg.id} 
                     className={clsx(
-                      "flex flex-col max-w-[70%]",
+                      "flex flex-col max-w-[85%] sm:max-w-[70%]",
                       isMe ? "mr-auto items-end" : "ml-auto items-start"
                     )}
                   >
                     {!isMe && selectedChat?.type === 'group' && (
-                      <span className="text-[10px] text-gray-400 font-bold mb-1 mr-2">{msg.senderName}</span>
+                      <span className="text-[9px] sm:text-[10px] text-gray-400 font-bold mb-1 mr-2">{msg.senderName}</span>
                     )}
                     <div className={clsx(
-                      "px-6 py-3 rounded-2xl text-sm font-medium shadow-sm",
+                      "px-4 sm:px-6 py-2 sm:py-3 rounded-2xl text-xs sm:text-sm font-medium shadow-sm",
                       isMe 
                         ? "bg-blue-600 text-white rounded-tl-none" 
                         : "bg-white text-gray-700 rounded-tr-none border border-gray-100"
                     )}>
                       {msg.text}
                     </div>
-                    <div className="flex items-center gap-1 mt-2 px-1">
-                      <span className="text-[10px] text-gray-400 font-bold">{formatTime(msg.createdAt)}</span>
+                    <div className="flex items-center gap-1 mt-1 sm:mt-2 px-1">
+                      <span className="text-[9px] sm:text-[10px] text-gray-400 font-bold">{formatTime(msg.createdAt)}</span>
                       {isMe && (
-                        <CheckCheck size={12} className="text-blue-400" />
+                        <CheckCheck size={10} className="text-blue-400" />
                       )}
                     </div>
                   </div>
@@ -749,10 +788,10 @@ export const Messages = () => {
             </div>
 
             {/* Input */}
-            <div className="p-6 border-t border-gray-50">
+            <div className="p-4 sm:p-6 border-t border-gray-50">
               <form 
                 onSubmit={handleSendMessage}
-                className="flex items-center gap-4"
+                className="flex items-center gap-2 sm:gap-4"
               >
                 <div className="flex-1 relative">
                   <input 
@@ -760,35 +799,35 @@ export const Messages = () => {
                     value={messageText}
                     onChange={(e) => setMessageText(e.target.value)}
                     placeholder="اكتب رسالتك هنا..." 
-                    className="w-full pr-6 pl-12 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+                    className="w-full pr-4 sm:pr-6 pl-10 sm:pl-12 py-3 sm:py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all text-sm font-medium"
                   />
                   <button 
                     type="button"
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-600 transition-all"
+                    className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-600 transition-all"
                   >
-                    <Plus size={20} />
+                    <Plus size={18} />
                   </button>
                 </div>
                 <button 
                   type="submit"
                   disabled={!messageText.trim()}
-                  className="w-14 h-14 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-12 h-12 sm:w-14 sm:h-14 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
                 >
-                  <Send size={24} className="rotate-180" />
+                  <Send size={20} className="rotate-180" />
                 </button>
               </form>
             </div>
           </>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-center p-10">
-            <div className="w-24 h-24 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center mb-6">
-              <MessageSquare size={48} />
+          <div className="flex-1 flex flex-col items-center justify-center text-center p-6 sm:p-10">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center mb-6">
+              <MessageSquare size={40} />
             </div>
-            <h3 className="text-2xl font-black text-gray-900 mb-2">محادثاتك</h3>
-            <p className="text-gray-500 font-medium max-w-xs">اختر محادثة من القائمة الجانبية للبدء في التواصل مع فريقك</p>
+            <h3 className="text-xl sm:text-2xl font-black text-gray-900 mb-2">محادثاتك</h3>
+            <p className="text-sm text-gray-500 font-medium max-w-xs">اختر محادثة من القائمة الجانبية للبدء في التواصل مع فريقك</p>
             <button 
               onClick={() => setShowNewChatModal(true)}
-              className="mt-6 bg-blue-600 text-white px-8 py-3 rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
+              className="mt-6 bg-blue-600 text-white px-6 sm:px-8 py-2.5 sm:py-3 rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
             >
               بدء محادثة جديدة
             </button>
