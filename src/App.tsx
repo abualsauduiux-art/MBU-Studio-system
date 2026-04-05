@@ -179,11 +179,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
             {hasPermission('clients') && <SidebarItem to="/clients" icon={Users} label="العملاء" active={location.pathname === "/clients"} />}
             {hasPermission('projects') && <SidebarItem to="/projects" icon={Briefcase} label="المشاريع" active={location.pathname === "/projects"} />}
             {hasPermission('tasks') && (
-              <>
-                <SidebarItem to="/tasks" icon={CheckSquare} label="المهام" active={location.pathname === "/tasks"} />
-                <SidebarItem to="/calendar" icon={CalendarIcon} label="التقويم" active={location.pathname === "/calendar"} />
-                <SidebarItem to="/media" icon={FolderOpen} label="المكتبة" active={location.pathname === "/media"} />
-              </>
+              <SidebarItem to="/tasks" icon={CheckSquare} label="المهام" active={location.pathname === "/tasks"} />
             )}
             {hasPermission('messages') && <SidebarItem to="/messages" icon={MessageSquare} label="الرسائل" active={location.pathname === "/messages"} />}
             
@@ -545,8 +541,6 @@ import { Expenses } from './components/Expenses';
 import { Team } from './components/Team';
 import { Reports } from './components/Reports';
 import { Messages } from './components/Messages';
-import { Calendar } from './components/Calendar';
-import { MediaLibrary } from './components/MediaLibrary';
 import { Analytics } from './components/Analytics';
 
 // --- Main App Component ---
@@ -586,8 +580,6 @@ function AppRoutes() {
           <Route path="/clients" element={hasPermission('clients') ? <Layout><Clients /></Layout> : <Navigate to="/" replace />} />
           <Route path="/projects" element={hasPermission('projects') ? <Layout><Projects /></Layout> : <Navigate to="/" replace />} />
           <Route path="/tasks" element={hasPermission('tasks') ? <Layout><Tasks /></Layout> : <Navigate to="/" replace />} />
-          <Route path="/calendar" element={hasPermission('tasks') ? <Layout><Calendar /></Layout> : <Navigate to="/" replace />} />
-          <Route path="/media" element={hasPermission('tasks') ? <Layout><MediaLibrary /></Layout> : <Navigate to="/" replace />} />
           <Route path="/messages" element={hasPermission('messages') ? <Layout><Messages /></Layout> : <Navigate to="/" replace />} />
           
           <Route path="/team" element={hasPermission('team') ? <Layout><Team /></Layout> : <Navigate to="/" replace />} />

@@ -90,14 +90,18 @@ service cloud.firestore {
     }
 
     match /tasks/{taskId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated() && (isManager() || request.auth.uid in resource.data.assignedTo);
       allow create: if isManager();
-      allow update: if isAuthenticated() && (isManager() || request.auth.uid == resource.data.assignedTo);
+      allow update: if isAuthenticated() && (
+        isManager() || 
+        (request.auth.uid in resource.data.assignedTo && 
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'commentsCount', 'reminderNotified']))
+      );
       allow delete: if isManager();
 
       match /comments/{commentId} {
-        allow read: if isAuthenticated();
-        allow create: if isAuthenticated();
+        allow read: if isAuthenticated() && (isManager() || request.auth.uid in get(/databases/$(database)/documents/tasks/$(taskId)).data.assignedTo);
+        allow create: if isAuthenticated() && (isManager() || request.auth.uid in get(/databases/$(database)/documents/tasks/$(taskId)).data.assignedTo);
         allow update, delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
       }
     }

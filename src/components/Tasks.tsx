@@ -36,7 +36,12 @@ import {
   Users,
   Download
 } from 'lucide-react';
-import { clsx } from 'clsx';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
 import { useAuth } from '../context/AuthContext';
 import { sendEmailNotification } from '../lib/email';
 
@@ -476,7 +481,8 @@ export const Tasks = () => {
     const matchesSearch = (task.title || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
     const matchesClient = clientFilter === 'all' || task.clientId === clientFilter;
-    return matchesSearch && matchesStatus && matchesClient;
+    const matchesUser = isAdmin || isManager || (Array.isArray(task.assignedTo) && task.assignedTo.includes(profile?.uid || ''));
+    return matchesSearch && matchesStatus && matchesClient && matchesUser;
   });
 
 
@@ -527,24 +533,28 @@ export const Tasks = () => {
           <p className="text-gray-500 mt-1 font-medium">تعيين المهام، تتبع التقدم، والمواعيد النهائية</p>
         </div>
         <div className="flex gap-3">
-          <button 
-            onClick={exportToCSV}
-            className="flex items-center justify-center gap-2 bg-white text-gray-700 border border-gray-100 px-6 py-3 rounded-2xl font-bold hover:bg-gray-50 transition-all shadow-sm"
-          >
-            <Download size={20} />
-            <span>تصدير CSV</span>
-          </button>
-          <button 
-            onClick={() => {
-              setEditingTask(null);
-              resetForm();
-              setIsModalOpen(true);
-            }}
-            className="flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
-          >
-            <Plus size={20} />
-            <span>إضافة مهمة جديدة</span>
-          </button>
+          {isManager && (
+            <>
+              <button 
+                onClick={exportToCSV}
+                className="flex items-center justify-center gap-2 bg-white text-gray-700 border border-gray-100 px-6 py-3 rounded-2xl font-bold hover:bg-gray-50 transition-all shadow-sm"
+              >
+                <Download size={20} />
+                <span>تصدير CSV</span>
+              </button>
+              <button 
+                onClick={() => {
+                  setEditingTask(null);
+                  resetForm();
+                  setIsModalOpen(true);
+                }}
+                className="flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
+              >
+                <Plus size={20} />
+                <span>إضافة مهمة جديدة</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -660,12 +670,21 @@ export const Tasks = () => {
               </div>
 
               <div className="flex items-center gap-2 sm:border-r sm:pr-6 sm:mr-auto border-gray-50">
-                <button onClick={() => openEditModal(task)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all">
-                  <Edit2 size={18} />
-                </button>
-                <button onClick={() => handleDelete(task.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all">
-                  <Trash2 size={18} />
-                </button>
+                {isManager && (
+                  <>
+                    <button onClick={() => openEditModal(task)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all">
+                      <Edit2 size={18} />
+                    </button>
+                    <button onClick={() => handleDelete(task.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all">
+                      <Trash2 size={18} />
+                    </button>
+                  </>
+                )}
+                {!isManager && (
+                  <button onClick={() => openEditModal(task)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all">
+                    <MessageSquare size={18} />
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -693,10 +712,11 @@ export const Tasks = () => {
               <label className="text-sm font-bold text-gray-700">عنوان المهمة</label>
               <input 
                 required
+                disabled={!isManager}
                 type="text" 
                 value={formData.title}
                 onChange={(e) => setFormData({...formData, title: e.target.value})}
-                className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+                className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium disabled:opacity-70"
                 placeholder="مثال: تصميم شعار العميل"
               />
             </div>
@@ -705,6 +725,7 @@ export const Tasks = () => {
               <div className="space-y-2">
                 <label className="text-sm font-bold text-gray-700">العميل</label>
                 <select 
+                  disabled={!isManager}
                   value={formData.clientId}
                   onChange={(e) => {
                     const newClientId = e.target.value;
@@ -714,7 +735,7 @@ export const Tasks = () => {
                       projectId: '' // Reset project when client changes
                     });
                   }}
-                  className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium appearance-none"
+                  className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium appearance-none disabled:opacity-70"
                 >
                   <option value="">اختر العميل...</option>
                   {clients.map(client => (
@@ -726,6 +747,7 @@ export const Tasks = () => {
                 <label className="text-sm font-bold text-gray-700">المشروع</label>
                 <select 
                   required
+                  disabled={!isManager}
                   value={formData.projectId}
                   onChange={(e) => {
                     const newProjectId = e.target.value;
@@ -736,7 +758,7 @@ export const Tasks = () => {
                       clientId: project ? project.clientId : formData.clientId
                     });
                   }}
-                  className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium appearance-none"
+                  className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium appearance-none disabled:opacity-70"
                 >
                   <option value="">اختر المشروع...</option>
                   {projects
@@ -752,9 +774,10 @@ export const Tasks = () => {
               <label className="text-sm font-bold text-gray-700">تعيين إلى (يمكنك اختيار أكثر من عضو)</label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[150px] overflow-y-auto p-3 bg-gray-50 rounded-2xl">
                 {team.map(member => (
-                  <label key={member.uid} className="flex items-center gap-3 p-2 hover:bg-white rounded-xl transition-all cursor-pointer">
+                  <label key={member.uid} className={cn("flex items-center gap-3 p-2 hover:bg-white rounded-xl transition-all cursor-pointer", !isManager && "pointer-events-none opacity-70")}>
                     <input 
                       type="checkbox"
+                      disabled={!isManager}
                       checked={formData.assignedTo.includes(member.uid)}
                       onChange={(e) => {
                         if (e.target.checked) {
@@ -775,9 +798,10 @@ export const Tasks = () => {
               <div className="space-y-2">
                 <label className="text-sm font-bold text-gray-700">الأولوية</label>
                 <select 
+                  disabled={!isManager}
                   value={formData.priority}
                   onChange={(e) => setFormData({...formData, priority: e.target.value as Task['priority']})}
-                  className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium appearance-none"
+                  className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium appearance-none disabled:opacity-70"
                 >
                   <option value="low">منخفضة</option>
                   <option value="medium">متوسطة</option>
@@ -803,19 +827,21 @@ export const Tasks = () => {
               <div className="space-y-2">
                 <label className="text-sm font-bold text-gray-700">الموعد النهائي</label>
                 <input 
+                  disabled={!isManager}
                   type="date" 
                   value={formData.deadline}
                   onChange={(e) => setFormData({...formData, deadline: e.target.value})}
-                  className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+                  className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium disabled:opacity-70"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-bold text-gray-700">تذكير في (اختياري)</label>
                 <input 
+                  disabled={!isManager}
                   type="datetime-local" 
                   value={formData.reminderAt}
                   onChange={(e) => setFormData({...formData, reminderAt: e.target.value})}
-                  className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+                  className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium disabled:opacity-70"
                 />
               </div>
             </div>
@@ -823,9 +849,10 @@ export const Tasks = () => {
             <div className="space-y-2">
               <label className="text-sm font-bold text-gray-700">وصف المهمة</label>
               <textarea 
+                disabled={!isManager}
                 value={formData.description}
                 onChange={(e) => setFormData({...formData, description: e.target.value})}
-                className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium min-h-[80px]"
+                className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium min-h-[80px] disabled:opacity-70"
                 placeholder="تفاصيل إضافية عن المهمة..."
               />
             </div>
@@ -837,32 +864,36 @@ export const Tasks = () => {
                   <div key={index} className="flex items-center gap-2 bg-gray-50 p-2 rounded-xl">
                     <Paperclip size={14} className="text-gray-400" />
                     <span className="text-xs font-medium truncate flex-1">{file}</span>
-                    <button 
-                      type="button"
-                      onClick={() => setFormData({...formData, files: formData.files.filter((_, i) => i !== index)})}
-                      className="text-red-500 hover:bg-red-50 p-1 rounded-lg"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    {isManager && (
+                      <button 
+                        type="button"
+                        onClick={() => setFormData({...formData, files: formData.files.filter((_, i) => i !== index)})}
+                        className="text-red-500 hover:bg-red-50 p-1 rounded-lg"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </div>
                 ))}
-                <div className="flex gap-2">
-                  <input 
-                    type="text"
-                    placeholder="أضف رابط ملف..."
-                    className="flex-1 px-4 py-2 bg-gray-50 border-none rounded-xl text-xs font-medium"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        const val = (e.target as HTMLInputElement).value;
-                        if (val) {
-                          setFormData({...formData, files: [...formData.files, val]});
-                          (e.target as HTMLInputElement).value = '';
+                {isManager && (
+                  <div className="flex gap-2">
+                    <input 
+                      type="text"
+                      placeholder="أضف رابط ملف..."
+                      className="flex-1 px-4 py-2 bg-gray-50 border-none rounded-xl text-xs font-medium"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const val = (e.target as HTMLInputElement).value;
+                          if (val) {
+                            setFormData({...formData, files: [...formData.files, val]});
+                            (e.target as HTMLInputElement).value = '';
+                          }
                         }
-                      }
-                    }}
-                  />
-                </div>
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             </div>
 
