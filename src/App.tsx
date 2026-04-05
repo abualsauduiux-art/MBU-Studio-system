@@ -327,7 +327,10 @@ const Layout = ({ children }: { children: ReactNode }) => {
               </AnimatePresence>
             </div>
             
-            <div className="flex items-center gap-3 pl-2 border-r border-gray-100">
+            <div 
+              className="flex items-center gap-3 pl-2 border-r border-gray-100 cursor-pointer hover:bg-gray-50 p-2 rounded-xl transition-all"
+              onClick={() => navigate('/profile')}
+            >
               <div className="text-left">
                 <p className="text-sm font-bold text-gray-900 leading-tight">{profile?.name}</p>
                 <p className="text-xs text-gray-400 capitalize">{profile?.jobTitle || profile?.role}</p>
@@ -542,6 +545,7 @@ import { Team } from './components/Team';
 import { Reports } from './components/Reports';
 import { Messages } from './components/Messages';
 import { Analytics } from './components/Analytics';
+import { Profile } from './components/Profile';
 
 // --- Main App Component ---
 
@@ -591,6 +595,7 @@ function AppRoutes() {
           <Route path="/reports" element={hasPermission('settings') ? <Layout><Reports /></Layout> : <Navigate to="/" replace />} />
           <Route path="/analytics" element={hasPermission('settings') ? <Layout><Analytics /></Layout> : <Navigate to="/" replace />} />
           <Route path="/notifications" element={<Layout><Notifications /></Layout>} />
+          <Route path="/profile" element={<Layout><Profile /></Layout>} />
           
           <Route path="/login" element={<Navigate to="/" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />

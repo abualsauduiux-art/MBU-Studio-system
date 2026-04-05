@@ -61,7 +61,7 @@ export const Invoices = () => {
 
   const [settingsFormData, setSettingsFormData] = useState<Partial<AgencySettings>>({
     name: 'MBU Studio',
-    logo: '',
+    logo: 'https://drive.google.com/uc?export=download&id=1CA2157vgEoRRyRJVFuAhPN9GntFBcl9C',
     address: 'الرياض، المملكة العربية السعودية',
     phone: '966500000000+',
     email: 'info@mbustudio.com',

@@ -34,7 +34,8 @@ import {
   Send,
   ChevronRight,
   Users,
-  Download
+  Download,
+  Check
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -827,11 +828,10 @@ export const Tasks = () => {
               <div className="space-y-2">
                 <label className="text-sm font-bold text-gray-700">الموعد النهائي</label>
                 <input 
-                  disabled={!isManager}
                   type="date" 
                   value={formData.deadline}
                   onChange={(e) => setFormData({...formData, deadline: e.target.value})}
-                  className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium disabled:opacity-70"
+                  className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium"
                 />
               </div>
               <div className="space-y-2">
@@ -849,10 +849,9 @@ export const Tasks = () => {
             <div className="space-y-2">
               <label className="text-sm font-bold text-gray-700">وصف المهمة</label>
               <textarea 
-                disabled={!isManager}
                 value={formData.description}
                 onChange={(e) => setFormData({...formData, description: e.target.value})}
-                className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium min-h-[80px] disabled:opacity-70"
+                className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium min-h-[80px]"
                 placeholder="تفاصيل إضافية عن المهمة..."
               />
             </div>
@@ -864,53 +863,84 @@ export const Tasks = () => {
                   <div key={index} className="flex items-center gap-2 bg-gray-50 p-2 rounded-xl">
                     <Paperclip size={14} className="text-gray-400" />
                     <span className="text-xs font-medium truncate flex-1">{file}</span>
-                    {isManager && (
-                      <button 
-                        type="button"
-                        onClick={() => setFormData({...formData, files: formData.files.filter((_, i) => i !== index)})}
-                        className="text-red-500 hover:bg-red-50 p-1 rounded-lg"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    )}
+                    <button 
+                      type="button"
+                      onClick={() => setFormData({...formData, files: formData.files.filter((_, i) => i !== index)})}
+                      className="text-red-500 hover:bg-red-50 p-1 rounded-lg"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </div>
                 ))}
-                {isManager && (
-                  <div className="flex gap-2">
-                    <input 
-                      type="text"
-                      placeholder="أضف رابط ملف..."
-                      className="flex-1 px-4 py-2 bg-gray-50 border-none rounded-xl text-xs font-medium"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          const val = (e.target as HTMLInputElement).value;
-                          if (val) {
-                            setFormData({...formData, files: [...formData.files, val]});
-                            (e.target as HTMLInputElement).value = '';
-                          }
+                <div className="flex gap-2">
+                  <input 
+                    type="text"
+                    placeholder="أضف رابط ملف..."
+                    className="flex-1 px-4 py-2 bg-gray-50 border-none rounded-xl text-xs font-medium"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const val = (e.target as HTMLInputElement).value;
+                        if (val) {
+                          setFormData({...formData, files: [...formData.files, val]});
+                          (e.target as HTMLInputElement).value = '';
                         }
-                      }}
-                    />
-                  </div>
-                )}
+                      }
+                    }}
+                  />
+                </div>
               </div>
             </div>
 
-            <div className="pt-4 flex gap-3">
-              <button 
-                type="submit"
-                className="flex-1 bg-blue-600 text-white font-bold py-4 rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
-              >
-                {editingTask ? 'حفظ التعديلات' : 'إضافة المهمة'}
-              </button>
-              <button 
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="px-8 bg-gray-100 text-gray-600 font-bold py-4 rounded-2xl hover:bg-gray-200 transition-all"
-              >
-                إلغاء
-              </button>
+            <div className="pt-4 flex flex-col gap-3">
+              <div className="flex gap-3">
+                <button 
+                  type="submit"
+                  className="flex-1 bg-blue-600 text-white font-bold py-4 rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
+                >
+                  {editingTask ? 'حفظ التعديلات' : 'إضافة المهمة'}
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-8 bg-gray-100 text-gray-600 font-bold py-4 rounded-2xl hover:bg-gray-200 transition-all"
+                >
+                  إلغاء
+                </button>
+              </div>
+              
+              {!isManager && editingTask && formData.status !== 'review' && formData.status !== 'done' && (
+                <button 
+                  type="button"
+                  onClick={async () => {
+                    if (editingTask) {
+                      try {
+                        const taskRef = doc(db, 'tasks', editingTask.id);
+                        await updateDoc(taskRef, { status: 'review' });
+                        
+                        // Add a comment automatically
+                        await addDoc(collection(db, 'tasks', editingTask.id, 'comments'), {
+                          taskId: editingTask.id,
+                          userId: profile?.uid,
+                          userName: profile?.name,
+                          text: "تم الانتهاء من العمل وإرساله للمراجعة ✅",
+                          createdAt: new Date().toISOString()
+                        });
+                        
+                        setIsModalOpen(false);
+                        alert("تم إرسال العمل بنجاح!");
+                      } catch (err) {
+                        console.error("Error submitting work:", err);
+                        alert("حدث خطأ أثناء إرسال العمل.");
+                      }
+                    }
+                  }}
+                  className="w-full bg-emerald-600 text-white font-bold py-4 rounded-2xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 flex items-center justify-center gap-2"
+                >
+                  <Check size={20} />
+                  <span>إرسال العمل للمراجعة</span>
+                </button>
+              )}
             </div>
           </form>
 

@@ -6,13 +6,12 @@ import {
   Send, 
   User,
   MoreVertical,
-  Phone,
-  Video,
   Plus,
   Users as UsersIcon,
   Check,
   CheckCheck,
-  X
+  X,
+  Bell
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -34,25 +33,12 @@ import { db, handleFirestoreError, OperationType } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { UserProfile } from '../types';
 import { clsx } from 'clsx';
-import Peer from 'simple-peer';
 
 interface Message {
   id: string;
   senderId: string;
   senderName: string;
   text: string;
-  createdAt: Timestamp;
-}
-
-interface Call {
-  id: string;
-  callerId: string;
-  callerName: string;
-  receiverId: string;
-  type: 'audio' | 'video';
-  status: 'ringing' | 'accepted' | 'rejected' | 'ended';
-  callerSignal?: string;
-  receiverSignal?: string;
   createdAt: Timestamp;
 }
 
@@ -89,15 +75,6 @@ export const Messages = () => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
-  // Call states
-  const [activeCall, setActiveCall] = useState<Call | null>(null);
-  const [incomingCall, setIncomingCall] = useState<Call | null>(null);
-  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
-  const peerRef = useRef<Peer.Instance | null>(null);
-  const localVideoRef = useRef<HTMLVideoElement>(null);
-  const remoteVideoRef = useRef<HTMLVideoElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -216,253 +193,6 @@ export const Messages = () => {
 
     return () => unsubscribe();
   }, [selectedChatId, user]);
-
-  // Listen for incoming calls
-  useEffect(() => {
-    if (!user) return;
-
-    const q = query(
-      collection(db, 'calls'),
-      where('receiverId', '==', user.uid),
-      where('status', '==', 'ringing'),
-      orderBy('createdAt', 'desc'),
-      limit(1)
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (!snapshot.empty) {
-        const callData = { 
-          id: snapshot.docs[0].id, 
-          ...snapshot.docs[0].data() 
-        } as Call;
-        // Only show if it's recent (within last 30 seconds)
-        const now = Timestamp.now().toMillis();
-        const callTime = callData.createdAt.toMillis();
-        if (now - callTime < 30000) {
-          setIncomingCall(callData);
-          // Play ringtone
-          const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/1359/1359-preview.mp3');
-          audio.play().catch(() => {});
-        }
-      } else {
-        setIncomingCall(null);
-      }
-    });
-
-    return () => unsubscribe();
-  }, [user]);
-
-  // Listen for call updates (for caller)
-  useEffect(() => {
-    if (!activeCall || activeCall.callerId !== user?.uid) return;
-
-    const unsubscribe = onSnapshot(doc(db, 'calls', activeCall.id), (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.data() as Call;
-        if (data.status === 'accepted' && data.receiverSignal && !peerRef.current?.connected) {
-          try {
-            peerRef.current?.signal(JSON.parse(data.receiverSignal));
-          } catch (e) {
-            console.error("Signal error", e);
-          }
-        } else if (data.status === 'rejected' || data.status === 'ended') {
-          cleanupCall();
-        }
-      }
-    });
-
-    return () => unsubscribe();
-  }, [activeCall, user]);
-
-  // Listen for call updates (for receiver)
-  useEffect(() => {
-    if (!activeCall || activeCall.receiverId !== user?.uid) return;
-
-    const unsubscribe = onSnapshot(doc(db, 'calls', activeCall.id), (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.data() as Call;
-        if (data.status === 'ended') {
-          cleanupCall();
-        }
-      }
-    });
-
-    return () => unsubscribe();
-  }, [activeCall, user]);
-
-  const cleanupCall = () => {
-    if (peerRef.current) {
-      peerRef.current.destroy();
-      peerRef.current = null;
-    }
-    if (localStream) {
-      localStream.getTracks().forEach(track => track.stop());
-      setLocalStream(null);
-    }
-    setRemoteStream(null);
-    setActiveCall(null);
-    setIncomingCall(null);
-  };
-
-  const startCall = async (type: 'audio' | 'video') => {
-    if (!selectedChatId || !user || !profile) return;
-    const otherParticipantId = selectedChat?.participants.find(p => p !== user.uid);
-    if (!otherParticipantId) return;
-
-    try {
-      // Check if mediaDevices is supported
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('Browser does not support media devices');
-      }
-
-      const constraints: MediaStreamConstraints = {
-        audio: true,
-        video: type === 'video'
-      };
-
-      let stream: MediaStream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia(constraints);
-      } catch (err: any) {
-        // If video failed, try audio only as fallback if it was a video call
-        if (type === 'video' && (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError')) {
-          console.warn("Camera not found, falling back to audio only");
-          stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-          // Update call type to audio if we fell back
-          type = 'audio'; 
-        } else {
-          throw err;
-        }
-      }
-
-      setLocalStream(stream);
-
-      const peer = new Peer({
-        initiator: true,
-        trickle: false,
-        stream: stream
-      });
-
-      peer.on('signal', async (data) => {
-        const callPayload = {
-          callerId: user.uid,
-          callerName: profile.name,
-          receiverId: otherParticipantId,
-          type,
-          status: 'ringing',
-          callerSignal: JSON.stringify(data),
-          createdAt: serverTimestamp()
-        };
-        const docRef = await addDoc(collection(db, 'calls'), callPayload);
-        setActiveCall({ 
-          ...callPayload, 
-          id: docRef.id, 
-          createdAt: Timestamp.now(),
-          status: 'ringing' 
-        });
-      });
-
-      peer.on('stream', (remoteStream) => {
-        setRemoteStream(remoteStream);
-      });
-
-      peer.on('close', () => cleanupCall());
-      peer.on('error', (err) => {
-        console.error("Peer error", err);
-        cleanupCall();
-      });
-
-      peerRef.current = peer;
-    } catch (err: any) {
-      console.error("Media error", err);
-      if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        alert("لم يتم العثور على الكاميرا أو الميكروفون. يرجى التأكد من توصيل الأجهزة.");
-      } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        alert("تم رفض الوصول إلى الكاميرا أو الميكروفون. يرجى تفعيل الأذونات من إعدادات المتصفح.");
-      } else {
-        alert("حدث خطأ أثناء محاولة الوصول إلى الكاميرا أو الميكروفون.");
-      }
-    }
-  };
-
-  const acceptCall = async () => {
-    if (!incomingCall || !user) return;
-
-    try {
-      const constraints: MediaStreamConstraints = {
-        audio: true,
-        video: incomingCall.type === 'video'
-      };
-
-      let stream: MediaStream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia(constraints);
-      } catch (err: any) {
-        if (incomingCall.type === 'video' && (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError')) {
-          stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        } else {
-          throw err;
-        }
-      }
-      
-      setLocalStream(stream);
-
-      const peer = new Peer({
-        initiator: false,
-        trickle: false,
-        stream: stream
-      });
-
-      peer.on('signal', async (data) => {
-        await updateDoc(doc(db, 'calls', incomingCall.id), {
-          status: 'accepted',
-          receiverSignal: JSON.stringify(data)
-        });
-        setActiveCall({ ...incomingCall, status: 'accepted' });
-        setIncomingCall(null);
-      });
-
-      peer.on('stream', (remoteStream) => {
-        setRemoteStream(remoteStream);
-      });
-
-      peer.on('close', () => cleanupCall());
-      peer.on('error', (err) => {
-        console.error("Peer error", err);
-        cleanupCall();
-      });
-
-      if (incomingCall.callerSignal) {
-        peer.signal(JSON.parse(incomingCall.callerSignal));
-      }
-      
-      peerRef.current = peer;
-    } catch (err: any) {
-      console.error("Media error", err);
-      if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        alert("لم يتم العثور على الكاميرا أو الميكروفون.");
-      } else {
-        alert("يرجى تفعيل الكاميرا والميكروفون للمتابعة");
-      }
-      cleanupCall();
-    }
-  };
-
-  const rejectCall = async () => {
-    if (!incomingCall) return;
-    await updateDoc(doc(db, 'calls', incomingCall.id), {
-      status: 'rejected'
-    });
-    setIncomingCall(null);
-  };
-
-  const endCall = async () => {
-    if (!activeCall) return;
-    await updateDoc(doc(db, 'calls', activeCall.id), {
-      status: 'ended'
-    });
-    cleanupCall();
-  };
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -625,7 +355,7 @@ export const Messages = () => {
                   className="p-2 text-amber-600 bg-amber-50 rounded-xl hover:bg-amber-100 transition-all"
                   title="تفعيل الإشعارات"
                 >
-                  <Phone size={18} />
+                  <Bell size={18} />
                 </button>
               )}
               <button 
@@ -734,18 +464,6 @@ export const Messages = () => {
                 </div>
               </div>
               <div className="flex items-center gap-1 sm:gap-2">
-                <button 
-                  onClick={() => startCall('audio')}
-                  className="p-2 sm:p-3 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
-                >
-                  <Phone size={18} />
-                </button>
-                <button 
-                  onClick={() => startCall('video')}
-                  className="p-2 sm:p-3 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
-                >
-                  <Video size={18} />
-                </button>
                 <button className="p-2 sm:p-3 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all">
                   <MoreVertical size={18} />
                 </button>
@@ -888,127 +606,6 @@ export const Messages = () => {
           </div>
         </div>
       )}
-
-      {/* Incoming Call Modal */}
-      <AnimatePresence>
-        {incomingCall && (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md"
-          >
-            <div className="bg-white w-full max-w-sm rounded-[40px] p-10 text-center shadow-2xl">
-              <div className="relative mb-8">
-                <div className="absolute inset-0 bg-blue-400 rounded-full animate-ping opacity-20" />
-                <img 
-                  src={`https://ui-avatars.com/api/?name=${encodeURIComponent(incomingCall.callerName)}&background=random&size=128`} 
-                  alt="" 
-                  className="w-32 h-32 rounded-full mx-auto relative z-10 border-4 border-white shadow-xl"
-                />
-              </div>
-              <h3 className="text-2xl font-black text-gray-900 mb-2">{incomingCall.callerName}</h3>
-              <p className="text-blue-600 font-bold mb-10 animate-pulse">
-                {incomingCall.type === 'video' ? 'مكالمة فيديو واردة...' : 'مكالمة صوتية واردة...'}
-              </p>
-              <div className="flex justify-center gap-6">
-                <button 
-                  onClick={rejectCall}
-                  className="w-16 h-16 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg shadow-red-200 hover:bg-red-600 transition-all"
-                >
-                  <X size={32} />
-                </button>
-                <button 
-                  onClick={acceptCall}
-                  className="w-16 h-16 bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-lg shadow-emerald-200 hover:bg-emerald-600 transition-all"
-                >
-                  {incomingCall.type === 'video' ? <Video size={32} /> : <Phone size={32} />}
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Active Call Overlay */}
-      <AnimatePresence>
-        {activeCall && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-gray-900 flex flex-col"
-          >
-            <div className="flex-1 relative flex items-center justify-center overflow-hidden">
-              {activeCall.type === 'video' ? (
-                <>
-                  {remoteStream ? (
-                    <video 
-                      ref={el => { if (el) el.srcObject = remoteStream; }} 
-                      autoPlay 
-                      playsInline 
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="text-center">
-                      <img 
-                        src={`https://ui-avatars.com/api/?name=${encodeURIComponent(activeCall.callerId === user?.uid ? (selectedChat ? getChatName(selectedChat) : '...') : activeCall.callerName)}&background=random&size=200`} 
-                        alt="" 
-                        className="w-48 h-48 rounded-full mx-auto mb-6 border-4 border-white/20 shadow-2xl"
-                      />
-                      <p className="text-white/60 font-bold animate-pulse">جاري الاتصال...</p>
-                    </div>
-                  )}
-                  
-                  {/* Local Video Preview */}
-                  <div className="absolute bottom-24 right-8 w-48 h-64 bg-black rounded-3xl overflow-hidden border-2 border-white/20 shadow-2xl z-20">
-                    <video 
-                      ref={el => { if (el) el.srcObject = localStream; }} 
-                      autoPlay 
-                      muted 
-                      playsInline 
-                      className="w-full h-full object-cover mirror"
-                    />
-                  </div>
-                </>
-              ) : (
-                <div className="text-center">
-                  <div className="relative mb-8">
-                    <div className="absolute inset-0 bg-blue-400 rounded-full animate-ping opacity-20" />
-                    <img 
-                      src={`https://ui-avatars.com/api/?name=${encodeURIComponent(activeCall.callerId === user?.uid ? (selectedChat ? getChatName(selectedChat) : '...') : activeCall.callerName)}&background=random&size=200`} 
-                      alt="" 
-                      className="w-48 h-48 rounded-full mx-auto relative z-10 border-4 border-white/20 shadow-2xl"
-                    />
-                  </div>
-                  <h3 className="text-3xl font-black text-white mb-2">
-                    {activeCall.callerId === user?.uid ? (selectedChat ? getChatName(selectedChat) : 'جاري الاتصال...') : activeCall.callerName}
-                  </h3>
-                  <p className="text-blue-400 font-bold">
-                    {remoteStream ? 'مكالمة نشطة' : 'يرن...'}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Call Controls */}
-            <div className="h-32 bg-black/40 backdrop-blur-xl flex items-center justify-center gap-8 px-8">
-              <button className="w-14 h-14 bg-white/10 text-white rounded-full flex items-center justify-center hover:bg-white/20 transition-all">
-                <Phone size={24} className="opacity-60" />
-              </button>
-              <button 
-                onClick={endCall}
-                className="w-20 h-20 bg-red-500 text-white rounded-full flex items-center justify-center shadow-xl shadow-red-500/20 hover:bg-red-600 transition-all transform hover:scale-110"
-              >
-                <X size={36} />
-              </button>
-              <button className="w-14 h-14 bg-white/10 text-white rounded-full flex items-center justify-center hover:bg-white/20 transition-all">
-                <Video size={24} className="opacity-60" />
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };

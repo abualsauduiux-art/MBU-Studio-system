@@ -20,6 +20,8 @@ export interface UserProfile {
   password?: string; // Visible to admin only
   teamId?: string;
   photoURL?: string;
+  address?: string;
+  cashNumber?: string;
   createdAt: string;
   permissions?: UserPermissions;
 }
